@@ -14,7 +14,9 @@ export default class DashboardErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("Dashboard error:", error, info);
+    void import("@/lib/monitoring").then(({ reportClientError }) => {
+      reportClientError(error, { source: "dashboard_boundary" });
+    });
   }
 
   render() {

@@ -1,6 +1,23 @@
 "use client";
 
-import { memo, useCallback, useState, type MutableRefObject } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
+import ExportStudioSection from "@/components/ExportStudioSection";
+import ExportPipelineBar from "@/components/ExportPipelineBar";
+import CreatorConfidence from "@/components/CreatorConfidence";
+import HealthNotice from "@/components/HealthNotice";
+import ExportShowcase from "@/components/ExportShowcase";
+import ExportFeedbackPrompt from "@/components/ExportFeedbackPrompt";
+import { loadExportHistory, recordExportHistory } from "@/lib/exportStudio";
+import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
+import { recordExportPreference } from "@/lib/creatorMemory";
+import { canExport, recordExportUsage } from "@/lib/usage";
 import CarouselSlide from "@/components/CarouselSlide";
 import {
   countExportableSlides,
@@ -9,8 +26,26 @@ import {
   type ExportFormat,
   type ExportProgress,
 } from "@/lib/exportSlides";
-import { SLIDE_KEYS, type Captions } from "@/lib/slides";
+import {
+  acquireExportLock,
+  isActiveRenderSession,
+  releaseExportLock,
+} from "@/lib/exportSession";
+import {
+  ExportTimeline,
+  type ExportTimelineSnapshot,
+} from "@/lib/exportTimeline";
+import {
+  runExportPreflight,
+  type ConfidenceBadge,
+  EXPORT_SPEC_LABEL,
+} from "@/lib/exportPreflight";
+import { recordHealthEvent } from "@/lib/health";
+import { scheduleIdleCleanup } from "@/lib/idleCleanup";
+import { shouldShowToast } from "@/lib/toastCoordinator";
+import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { TemplateId } from "@/lib/templates";
+import { parseExportFormat } from "@/lib/validation";
 
 type ExportPanelProps = {
   images: string[];
@@ -18,24 +53,11 @@ type ExportPanelProps = {
   templateId: TemplateId;
   slideRefs: MutableRefObject<(HTMLElement | null)[]>;
   onToast: (message: string, variant?: "success" | "error") => void;
+  onExportComplete?: (format: string) => void;
+  showWatermark?: boolean;
+  brandKit?: BrandKit;
+  cloudSynced?: boolean;
 };
-
-function ExportProgressBar({ progress }: { progress: ExportProgress | null }) {
-  if (!progress) return null;
-  const pct = Math.round((progress.current / progress.total) * 100);
-
-  return (
-    <div className="mb-4 overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-zinc-800">
-      <div
-        className="h-1.5 bg-[#f7c600] transition-all duration-300"
-        style={{ width: `${pct}%` }}
-      />
-      <p className="px-3 py-2 text-xs text-zinc-400">
-        Exporting slide {progress.current} of {progress.total}…
-      </p>
-    </div>
-  );
-}
 
 function ExportPanel({
   images,
@@ -43,78 +65,272 @@ function ExportPanel({
   templateId,
   slideRefs,
   onToast,
+  onExportComplete,
+  showWatermark = false,
+  brandKit,
+  cloudSynced = false,
 }: ExportPanelProps) {
   const [format, setFormat] = useState<ExportFormat>("jpeg");
+  const [historyRefresh, setHistoryRefresh] = useState(0);
+  const watermark = resolveWatermarkText(brandKit ?? DEFAULT_BRAND_KIT, showWatermark);
   const [exportingAll, setExportingAll] = useState(false);
   const [exportingIndex, setExportingIndex] = useState<number | null>(null);
-  const [progress, setProgress] = useState<ExportProgress | null>(null);
+  const [pipeline, setPipeline] = useState<ExportTimelineSnapshot | null>(null);
+  const [confidenceBadges, setConfidenceBadges] = useState<ConfidenceBadge[]>(
+    []
+  );
+  const abortRef = useRef<AbortController | null>(null);
+  const timelineRef = useRef<ExportTimeline | null>(null);
+  const sessionRef = useRef<string | null>(null);
+  const cancelToastSentRef = useRef(false);
+  const [feedbackExportId, setFeedbackExportId] = useState<string | null>(null);
 
   const isBusy = exportingAll || exportingIndex !== null;
 
-  const handleProgress = useCallback((p: ExportProgress) => {
-    setProgress(p);
+  const emitToast = useCallback(
+    (message: string, variant: "success" | "error" = "success") => {
+      if (shouldShowToast(message, variant)) {
+        onToast(message, variant);
+      }
+    },
+    [onToast]
+  );
+
+  const resetPipeline = useCallback(() => {
+    setPipeline(null);
+    timelineRef.current = null;
+    sessionRef.current = null;
+    cancelToastSentRef.current = false;
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const result = await runExportPreflight({
+        images,
+        captions,
+        slideRefs: slideRefs.current,
+        expectedTotal: SLIDE_COUNT,
+        cloudSynced,
+      });
+      if (!cancelled && result.ok) {
+        setConfidenceBadges(result.badges);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [images, captions, cloudSynced, slideRefs]);
+
+  const finishSession = useCallback(
+    (sessionId: string) => {
+      releaseExportLock(sessionId);
+      scheduleIdleCleanup();
+      resetPipeline();
+    },
+    [resetPipeline]
+  );
+
+  const cancelExport = () => {
+    abortRef.current?.abort();
+    setExportingAll(false);
+    setExportingIndex(null);
+    const sessionId = sessionRef.current;
+    if (timelineRef.current) {
+      setPipeline(timelineRef.current.cancel());
+    }
+    if (sessionId) finishSession(sessionId);
+    if (!cancelToastSentRef.current) {
+      cancelToastSentRef.current = true;
+      emitToast("Export cancelled", "error");
+    }
+  };
+
+  const handleProgress = useCallback(
+    (sessionId: string, progress: ExportProgress, didExport: boolean) => {
+      if (!isActiveRenderSession(sessionId) || !timelineRef.current) return;
+      setPipeline(timelineRef.current.advance(progress, didExport));
+    },
+    []
+  );
+
   const handleExportAll = async () => {
-    const total = countExportableSlides(slideRefs.current);
-    if (total === 0) {
-      onToast("Open preview slides before exporting", "error");
+    if (isBusy) return;
+
+    const limit = canExport();
+    if (!limit.allowed) {
+      emitToast(limit.reason, "error");
       return;
     }
 
+    const lock = acquireExportLock();
+    if (!lock.acquired) {
+      emitToast("Render pipeline busy — wait for the current export", "error");
+      return;
+    }
+
+    const expectedTotal = Math.max(slideRefs.current.length, SLIDE_COUNT);
+    const preflight = await runExportPreflight({
+      images,
+      captions,
+      slideRefs: slideRefs.current,
+      expectedTotal,
+      cloudSynced,
+    });
+
+    if (!preflight.ok) {
+      releaseExportLock(lock.sessionId);
+      const first = preflight.issues[0];
+      emitToast(`${first.message} ${first.hint}`, "error");
+      setConfidenceBadges(preflight.badges);
+      return;
+    }
+
+    setConfidenceBadges(preflight.badges);
+    sessionRef.current = lock.sessionId;
+    timelineRef.current = new ExportTimeline(lock.sessionId);
+    setPipeline(timelineRef.current.start(expectedTotal));
+    setPipeline(timelineRef.current.beginRendering());
+
+    abortRef.current = new AbortController();
     setExportingAll(true);
-    setProgress({ current: 0, total });
+
     try {
       await exportAllSlides(slideRefs.current, {
         format,
-        onProgress: handleProgress,
+        expectedTotal,
+        signal: abortRef.current.signal,
+        onProgress: (p, meta) =>
+          handleProgress(lock.sessionId, p, meta?.didExport ?? false),
+        onPackaging: () => {
+          if (timelineRef.current && isActiveRenderSession(lock.sessionId)) {
+            setPipeline(timelineRef.current.beginPackaging());
+          }
+        },
       });
-      onToast(
+
+      if (!isActiveRenderSession(lock.sessionId)) return;
+
+      if (timelineRef.current) {
+        setPipeline(timelineRef.current.complete());
+      }
+      recordExportUsage();
+      recordExportHistory(format, preflight.exportable);
+      recordExportPreference(format);
+      setHistoryRefresh((n) => n + 1);
+      const history = loadExportHistory();
+      if (history[0]) setFeedbackExportId(history[0].id);
+      emitToast(
         format === "png"
           ? "PNG carousel exported — table-tales-carousel-png.zip"
           : "Carousel exported — table-tales-carousel.zip"
       );
+      onExportComplete?.(format);
     } catch (error) {
+      if (!isActiveRenderSession(lock.sessionId)) return;
+
       const msg =
         error instanceof Error ? error.message : "Export failed";
-      onToast(
-        msg.includes("timed out")
-          ? "Export timed out — retry with fewer images"
-          : "Export failed. Wait for images to load, then retry.",
-        "error"
-      );
+
+      if (timelineRef.current) {
+        setPipeline(
+          msg.includes("cancelled")
+            ? timelineRef.current.cancel()
+            : timelineRef.current.fail()
+        );
+      }
+
+      if (msg.includes("cancelled")) {
+        if (!cancelToastSentRef.current) {
+          cancelToastSentRef.current = true;
+          emitToast("Export cancelled", "error");
+        }
+      } else {
+        recordHealthEvent("exportFailures");
+        emitToast(
+          msg.includes("timed out")
+            ? "Export timed out — retry after images finish loading"
+            : "Export interrupted — preview loaded, then retry",
+          "error"
+        );
+      }
     } finally {
       setExportingAll(false);
-      setProgress(null);
+      finishSession(lock.sessionId);
     }
   };
 
   const handleExportSingle = async (index: number) => {
-    if (!slideRefs.current[index]) {
-      onToast(`Slide ${index + 1} is not ready`, "error");
+    if (isBusy) return;
+
+    const limit = canExport();
+    if (!limit.allowed) {
+      emitToast(limit.reason, "error");
       return;
     }
 
+    const lock = acquireExportLock();
+    if (!lock.acquired) {
+      emitToast("Render pipeline busy — wait for the current export", "error");
+      return;
+    }
+
+    if (!slideRefs.current[index]) {
+      releaseExportLock(lock.sessionId);
+      emitToast(`Slide ${index + 1} is not ready — check preview`, "error");
+      return;
+    }
+
+    sessionRef.current = lock.sessionId;
+    timelineRef.current = new ExportTimeline(lock.sessionId);
+    setPipeline(timelineRef.current.start(1));
+    setPipeline(timelineRef.current.beginRendering());
+
+    abortRef.current = new AbortController();
     setExportingIndex(index);
-    setProgress({ current: 0, total: 1 });
+
     try {
       await exportSingleSlide(slideRefs.current[index], index + 1, {
         format,
-        onProgress: handleProgress,
+        signal: abortRef.current.signal,
+        onProgress: (p) => handleProgress(lock.sessionId, p, true),
       });
-      onToast(`Slide ${index + 1} saved as ${format === "png" ? "PNG" : "JPG"}`);
+
+      if (!isActiveRenderSession(lock.sessionId)) return;
+
+      if (timelineRef.current) {
+        setPipeline(timelineRef.current.complete());
+      }
+      recordExportUsage();
+      recordExportHistory(format, 1);
+      recordExportPreference(format);
+      setHistoryRefresh((n) => n + 1);
+      emitToast(`Slide ${index + 1} saved as ${format === "png" ? "PNG" : "JPG"}`);
+      onExportComplete?.(format);
     } catch (error) {
+      if (!isActiveRenderSession(lock.sessionId)) return;
+
       const msg =
         error instanceof Error ? error.message : "Export failed";
-      onToast(
-        msg.includes("timed out")
-          ? `Slide ${index + 1} export timed out — retry`
-          : `Could not export slide ${index + 1}`,
+      if (timelineRef.current) {
+        setPipeline(
+          msg.includes("cancelled")
+            ? timelineRef.current.cancel()
+            : timelineRef.current.fail()
+        );
+      }
+      recordHealthEvent("exportFailures");
+      emitToast(
+        msg.includes("cancelled")
+          ? "Export cancelled"
+          : msg.includes("timed out")
+            ? `Slide ${index + 1} timed out — retry`
+            : `Could not export slide ${index + 1} — wait for preview`,
         "error"
       );
     } finally {
       setExportingIndex(null);
-      setProgress(null);
+      finishSession(lock.sessionId);
     }
   };
 
@@ -125,7 +341,7 @@ function ExportPanel({
       disabled={isBusy}
       className="w-full min-h-[48px] rounded-xl bg-[#f7c600] py-4 text-sm font-bold text-black shadow-[0_0_32px_rgba(247,198,0,0.35)] transition-all duration-200 hover:bg-[#ffe033] hover:shadow-[0_0_40px_rgba(247,198,0,0.45)] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {exportingAll ? "Packaging ZIP…" : "Export All Slides"}
+      {exportingAll ? "Rendering carousel…" : "Export All Slides"}
     </button>
   );
 
@@ -139,29 +355,41 @@ function ExportPanel({
           Export Individual Slides
         </h2>
         <p className="mt-1 text-xs text-zinc-500">
-          Instagram-ready · 1080×1350 · 2× retina
+          {EXPORT_SPEC_LABEL} · cinematic render pipeline
         </p>
       </header>
 
-      <div className="mb-4 flex gap-2">
-        {(["jpeg", "png"] as const).map((f) => (
-          <button
-            key={f}
-            type="button"
-            disabled={isBusy}
-            onClick={() => setFormat(f)}
-            className={`min-h-[40px] flex-1 rounded-lg border text-xs font-semibold uppercase tracking-wide transition-all duration-200 ${
-              format === f
-                ? "border-[#f7c600] bg-[#f7c600]/15 text-[#f7c600]"
-                : "border-zinc-700 bg-black/40 text-zinc-400 hover:border-zinc-500"
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+      <HealthNotice />
+      <CreatorConfidence badges={confidenceBadges} />
+      <ExportShowcase refreshKey={historyRefresh} />
+      {feedbackExportId && (
+        <ExportFeedbackPrompt
+          exportId={feedbackExportId}
+          onDismiss={() => setFeedbackExportId(null)}
+        />
+      )}
 
-      <ExportProgressBar progress={isBusy ? progress : null} />
+      <ExportStudioSection
+        format={format}
+        onFormatChange={(f) => {
+          const safe = parseExportFormat(f);
+          setFormat(safe);
+          recordExportPreference(safe);
+        }}
+        refreshKey={historyRefresh}
+      />
+
+      <ExportPipelineBar snapshot={isBusy ? pipeline : null} />
+
+      {isBusy && (
+        <button
+          type="button"
+          onClick={cancelExport}
+          className="mb-4 w-full rounded-lg border border-zinc-700 py-2 text-xs font-semibold text-zinc-400 transition-colors duration-200 hover:text-white"
+        >
+          Cancel render
+        </button>
+      )}
 
       <div className="mb-6 hidden md:block">{exportAllButton}</div>
 
@@ -192,6 +420,8 @@ function ExportPanel({
                     text={captions[key]}
                     index={i + 1}
                     templateId={templateId}
+                    brandKit={brandKit}
+                    watermarkText={watermark}
                   />
                 </div>
               </div>
@@ -202,9 +432,7 @@ function ExportPanel({
                 disabled={isBusy}
                 className="w-full min-h-[40px] rounded-lg border border-zinc-700 bg-[#1a1f2e] py-2 text-xs font-semibold text-white transition-colors duration-200 hover:border-[#f7c600]/40 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isLoading
-                  ? "Exporting…"
-                  : `Download ${format === "png" ? "PNG" : "JPG"}`}
+                {isLoading ? "Rendering…" : `Download ${format === "png" ? "PNG" : "JPG"}`}
               </button>
             </div>
           );

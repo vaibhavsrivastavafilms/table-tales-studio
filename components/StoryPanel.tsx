@@ -1,12 +1,15 @@
 "use client";
 
 import { memo } from "react";
+import AISuggestions from "@/components/AISuggestions";
 import { SLIDE_KEYS, type Captions } from "@/lib/slides";
+import type { ViralHookMode } from "@/lib/viralHooks";
 
 type StoryPanelProps = {
   captions: Captions;
   onCaptionChange: (key: keyof Captions, value: string) => void;
   isGenerating: boolean;
+  viralMode?: ViralHookMode;
 };
 
 function StorySkeleton() {
@@ -22,6 +25,7 @@ function StoryPanel({
   captions,
   onCaptionChange,
   isGenerating,
+  viralMode = "viral",
 }: StoryPanelProps) {
   const hasContent = SLIDE_KEYS.some((key) => captions[key].trim().length > 0);
 
@@ -38,6 +42,14 @@ function StoryPanel({
           Generate a story or write captions for each slide. Draft saves
           automatically.
         </p>
+      )}
+
+      {!isGenerating && (
+        <AISuggestions
+          captions={captions}
+          viralMode={viralMode}
+          onApply={onCaptionChange}
+        />
       )}
 
       {isGenerating

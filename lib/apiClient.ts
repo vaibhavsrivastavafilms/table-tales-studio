@@ -1,5 +1,9 @@
 import type { Captions } from "@/lib/slides";
 import { createEmptyCaptions } from "@/lib/draftStorage";
+import { sanitizeCaptions } from "@/lib/validation";
+import type { ViralHookMode } from "@/lib/viralHooks";
+import type { CaptionTone } from "@/lib/creatorMemory";
+import { recordHealthEvent } from "@/lib/health";
 
 const FALLBACK_CAPTIONS: Captions = {
   hook: "Street food isn't just food, it's emotion.",
@@ -13,6 +17,8 @@ const FALLBACK_CAPTIONS: Captions = {
 export type GenerateStoryPayload = {
   template: string;
   imageCount: number;
+  viralMode?: ViralHookMode;
+  captionTone?: CaptionTone;
 };
 
 export type GenerateStoryResult =
@@ -20,16 +26,8 @@ export type GenerateStoryResult =
   | { ok: false; error: string; captions: Captions };
 
 function normalizeCaptions(data: unknown): Captions {
-  const base = createEmptyCaptions();
-  if (!data || typeof data !== "object") return base;
-
-  const record = data as Record<string, unknown>;
-  for (const key of Object.keys(base) as (keyof Captions)[]) {
-    if (typeof record[key] === "string") {
-      base[key] = record[key];
-    }
-  }
-  return base;
+  if (!data || typeof data !== "object") return createEmptyCaptions();
+  return sanitizeCaptions(data);
 }
 
 export async function generateStory(
@@ -56,6 +54,7 @@ export async function generateStory(
     const captions = normalizeCaptions(data);
 
     if (!res.ok) {
+      if (res.status === 429) recordHealthEvent("aiTimeouts");
       return {
         ok: false,
         error: "Story generation unavailable. Using fallback captions.",
@@ -65,6 +64,7 @@ export async function generateStory(
 
     return { ok: true, captions };
   } catch {
+    recordHealthEvent("aiTimeouts");
     return {
       ok: false,
       error: "Network error while generating story.",

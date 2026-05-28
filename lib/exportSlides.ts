@@ -2,14 +2,17 @@ import { toJpeg, toPng } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { isBrowser } from "@/lib/browser";
+import { SLIDE_COUNT } from "@/lib/slides";
+import type { ExportFormat } from "@/lib/validation";
+
+export type { ExportFormat } from "@/lib/validation";
 
 export const EXPORT_WIDTH = 1080;
 export const EXPORT_HEIGHT = 1350;
 export const EXPORT_PIXEL_RATIO = 2;
 export const EXPORT_JPEG_QUALITY = 0.94;
 export const EXPORT_TIMEOUT_MS = 30_000;
-
-export type ExportFormat = "jpeg" | "png";
+export const MAX_EXPORT_SLOTS = SLIDE_COUNT * 2;
 
 export type ExportProgress = {
   current: number;
@@ -18,8 +21,33 @@ export type ExportProgress = {
 
 export type ExportOptions = {
   format?: ExportFormat;
-  onProgress?: (progress: ExportProgress) => void;
+  onProgress?: (progress: ExportProgress, meta?: { didExport: boolean }) => void;
+  signal?: AbortSignal;
+  /** Fixed progress denominator; avoids total changing mid-export. */
+  expectedTotal?: number;
+  /** Called before ZIP packaging (batch export only). */
+  onPackaging?: () => void;
 };
+
+export function getPendingExportBufferSize(): number {
+  return pendingDataUrls.length;
+}
+
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame !== "undefined") {
+      requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw new Error("Export cancelled");
+  }
+}
 
 const pendingDataUrls: string[] = [];
 
@@ -146,6 +174,8 @@ export async function exportSingleSlide(
   const format = options.format ?? "jpeg";
 
   try {
+    throwIfAborted(options.signal);
+    await yieldToMain();
     const dataUrl = await captureSlide(element, format);
     options.onProgress?.({ current: 1, total: 1 });
     downloadDataUrl(dataUrl, slideFilename(slideIndex, format));
@@ -160,18 +190,31 @@ export async function exportAllSlides(
 ): Promise<void> {
   const format = options.format ?? "jpeg";
   const zip = new JSZip();
-  const total = countExportableSlides(elements);
+  const exportable = countExportableSlides(elements);
 
-  if (total === 0) {
+  if (exportable === 0) {
     throw new Error("No slides are ready for export.");
   }
 
-  let current = 0;
+  const total = Math.min(
+    options.expectedTotal ?? exportable,
+    MAX_EXPORT_SLOTS
+  );
+  const slots =
+    total > elements.length
+      ? [...elements, ...Array<null>(total - elements.length).fill(null)]
+      : elements.slice(0, MAX_EXPORT_SLOTS);
 
   try {
-    for (let i = 0; i < elements.length; i++) {
-      const element = elements[i];
-      if (!element) continue;
+    for (let i = 0; i < slots.length; i++) {
+      throwIfAborted(options.signal);
+      await yieldToMain();
+
+      const element = slots[i];
+      if (!element) {
+        options.onProgress?.({ current: i + 1, total }, { didExport: false });
+        continue;
+      }
 
       const dataUrl = await captureSlide(element, format);
       zip.file(
@@ -180,9 +223,10 @@ export async function exportAllSlides(
         { base64: true }
       );
 
-      current += 1;
-      options.onProgress?.({ current, total });
+      options.onProgress?.({ current: i + 1, total }, { didExport: true });
     }
+
+    options.onPackaging?.();
 
     const blob = await zip.generateAsync({
       type: "blob",

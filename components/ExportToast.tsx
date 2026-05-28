@@ -1,5 +1,7 @@
 "use client";
 
+import { MOTION } from "@/lib/motion";
+
 type ExportToastProps = {
   message: string | null;
   variant?: "success" | "error";
@@ -16,7 +18,8 @@ export default function ExportToast({
   return (
     <div
       role="status"
-      className={`toast-enter fixed bottom-24 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-2xl px-6 py-4 text-sm font-semibold shadow-[0_0_40px_rgba(247,198,0,0.25)] backdrop-blur-md md:bottom-8 ${
+      style={{ animationDuration: `${MOTION.durationEnter}ms` }}
+      className={`toast-enter fixed bottom-24 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-2xl px-6 py-4 text-sm font-semibold shadow-[0_0_40px_rgba(247,198,0,0.25)] backdrop-blur-md transition-opacity md:bottom-8 ${
         isSuccess
           ? "bg-[#0b0f1a] text-white ring-1 ring-[#f7c600]/50"
           : "bg-red-950 text-red-100 ring-1 ring-red-500/40"

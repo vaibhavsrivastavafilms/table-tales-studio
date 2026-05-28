@@ -3,6 +3,11 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --motion-fast: 150ms;
+  --motion-normal: 200ms;
+  --motion-slow: 320ms;
+  --motion-enter: 450ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
@@ -89,11 +94,128 @@ body {
 }
 
 .toast-enter {
-  animation: toast-in 0.35s ease-out;
+  animation: toast-in var(--motion-enter) var(--motion-ease);
+}
+
+@keyframes skeleton-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.skeleton-rise {
+  animation: skeleton-rise var(--motion-slow) var(--motion-ease) both;
 }
 
 @media (max-width: 1279px) {
   .dashboard-main {
     padding-bottom: 5.5rem;
   }
+}
+
+.dashboard-main {
+  background: linear-gradient(
+    165deg,
+    #f7c600 0%,
+    #f5c200 42%,
+    #e8b800 100%
+  );
+}
+
+@keyframes ambient-shift {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes storyboard-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.storyboard-slide-enter {
+  animation: storyboard-enter 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes creator-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.creator-welcome {
+  animation: toast-in 0.4s ease-out;
+}
+
+.creator-loading-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(247, 198, 0, 0.15) 0%,
+    rgba(247, 198, 0, 1) 50%,
+    rgba(247, 198, 0, 0.15) 100%
+  );
+  background-size: 200% 100%;
+  animation: creator-shimmer 1.8s var(--motion-ease) infinite;
+}
+
+.export-pipeline-fill {
+  will-change: width;
+}
+
+.ai-suggestion-chip:active {
+  transform: scale(0.97);
+}
+
+.btn-press {
+  transition: transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-normal) var(--motion-ease);
+}
+
+.btn-press:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.btn-press:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #0b0f1a, 0 0 0 4px rgba(247, 198, 0, 0.55);
+}
+
+.panel-ambient {
+  position: relative;
+}
+
+.panel-ambient::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 80% 50% at 50% 0%,
+    rgba(247, 198, 0, 0.06),
+    transparent 70%
+  );
+  animation: ambient-shift 8s ease-in-out infinite;
 }

@@ -4,6 +4,7 @@ import { memo, useMemo, type MutableRefObject } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
 import EmptyState from "@/components/EmptyState";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
+import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
 import type { TemplateId } from "@/lib/templates";
 
 type PreviewPanelProps = {
@@ -11,6 +12,9 @@ type PreviewPanelProps = {
   captions: Captions;
   templateId: TemplateId;
   slideRefs: MutableRefObject<(HTMLElement | null)[]>;
+  showWatermark?: boolean;
+  brandKit?: BrandKit;
+  onOpenStoryboard?: () => void;
 };
 
 function PreviewPanel({
@@ -18,7 +22,11 @@ function PreviewPanel({
   captions,
   templateId,
   slideRefs,
+  showWatermark = false,
+  brandKit,
+  onOpenStoryboard,
 }: PreviewPanelProps) {
+  const watermark = resolveWatermarkText(brandKit ?? DEFAULT_BRAND_KIT, showWatermark);
   const slides = useMemo(
     () =>
       SLIDE_KEYS.map((key, i) => ({
@@ -39,15 +47,27 @@ function PreviewPanel({
         <h2 className="mt-1 text-2xl font-bold leading-tight text-white md:text-3xl">
           Carousel Preview
         </h2>
-        <p className="mt-2 text-xs text-zinc-500 md:text-sm">
-          {SLIDE_COUNT} slides · 4:5 · 2× export
-        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <p className="text-xs text-zinc-500 md:text-sm">
+            {SLIDE_COUNT} slides · 4:5 · 2× export
+          </p>
+          {onOpenStoryboard && images.length > 0 && (
+            <button
+              type="button"
+              onClick={onOpenStoryboard}
+              className="rounded-full border border-[#f7c600]/30 bg-[#f7c600]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-[#f7c600] transition hover:bg-[#f7c600]/20"
+            >
+              Storyboard
+            </button>
+          )}
+        </div>
       </header>
 
       {images.length === 0 ? (
         <EmptyState
-          title="Preview empty"
-          description="Upload images to see your stitched Instagram carousel."
+          icon="🎬"
+          title="Preview lights up when you upload"
+          description="Your stitched 4:5 carousel appears here — scroll horizontally, then open Storyboard for fullscreen."
         />
       ) : (
         <div className="relative min-w-0">
@@ -65,6 +85,8 @@ function PreviewPanel({
                   text={slide.text}
                   index={slide.index}
                   templateId={templateId}
+                  brandKit={brandKit}
+                  watermarkText={watermark}
                 />
               </div>
             ))}

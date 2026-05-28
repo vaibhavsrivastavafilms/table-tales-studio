@@ -1,5 +1,10 @@
 import { forwardRef, memo } from "react";
 import {
+  fontScaleForPreset,
+  resolveSlideAccent,
+  type BrandKit,
+} from "@/lib/brandKit";
+import {
   getTemplateConfig,
   type TemplateId,
 } from "@/lib/templates";
@@ -9,6 +14,9 @@ export type CarouselSlideProps = {
   text: string;
   index: number;
   templateId?: TemplateId | string;
+  showWatermark?: boolean;
+  brandKit?: BrandKit;
+  watermarkText?: string | null;
 };
 
 const SLIDE_WIDTH = 320;
@@ -16,11 +24,28 @@ const SLIDE_HEIGHT = 400;
 
 const CarouselSlide = memo(
   forwardRef<HTMLElement, CarouselSlideProps>(function CarouselSlide(
-    { image, text, index, templateId },
+    {
+      image,
+      text,
+      index,
+      templateId,
+      showWatermark = false,
+      brandKit,
+      watermarkText = null,
+    },
     ref
   ) {
     const config = getTemplateConfig(templateId ?? "street-food");
-    const fontSize = Math.round(17 * config.fontScale);
+    const accent = brandKit
+      ? resolveSlideAccent(config.accentColor, brandKit)
+      : config.accentColor;
+    const typeScale = brandKit
+      ? fontScaleForPreset(brandKit.typographyPreset)
+      : 1;
+    const fontSize = Math.round(17 * config.fontScale * typeScale);
+    const displayWatermark =
+      watermarkText ??
+      (showWatermark ? "Made with Table Tales Studio" : null);
     const captionAlignClass =
       config.captionAlignment === "left"
         ? "text-left"
@@ -35,7 +60,7 @@ const CarouselSlide = memo(
         style={{
           width: SLIDE_WIDTH,
           height: SLIDE_HEIGHT,
-          ["--slide-accent" as string]: config.accentColor,
+          ["--slide-accent" as string]: accent,
         }}
         aria-label={`Slide ${index}`}
       >
@@ -43,6 +68,8 @@ const CarouselSlide = memo(
           <img
             src={image}
             alt=""
+            width={SLIDE_WIDTH}
+            height={SLIDE_HEIGHT}
             loading="lazy"
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover"
@@ -74,8 +101,8 @@ const CarouselSlide = memo(
           <span
             className="inline-flex items-center rounded-full border bg-black/60 px-3 py-1 text-[10px] font-bold uppercase tracking-widest backdrop-blur-sm"
             style={{
-              borderColor: `${config.accentColor}66`,
-              color: config.accentColor,
+              borderColor: `${accent}66`,
+              color: accent,
             }}
           >
             {config.badgeText}
@@ -85,7 +112,7 @@ const CarouselSlide = memo(
         <div className="absolute right-3 top-3 z-10">
           <span
             className="flex h-7 w-7 items-center justify-center rounded-full bg-black/50 text-xs font-bold text-white/90 backdrop-blur-sm ring-1 ring-white/15"
-            style={{ boxShadow: `0 0 12px ${config.accentColor}33` }}
+            style={{ boxShadow: `0 0 12px ${accent}33` }}
           >
             {index}
           </span>
@@ -120,10 +147,16 @@ const CarouselSlide = memo(
           className="absolute bottom-0 left-1/2 z-10 h-0.5 -translate-x-1/2 rounded-full"
           style={{
             width: config.accentLineWidth,
-            backgroundColor: config.accentColor,
+            backgroundColor: accent,
             opacity: 0.85,
           }}
         />
+
+        {displayWatermark && (
+          <p className="pointer-events-none absolute bottom-3 right-3 z-10 text-[9px] font-semibold uppercase tracking-widest text-white/40">
+            {displayWatermark}
+          </p>
+        )}
       </article>
     );
   })

@@ -2,11 +2,15 @@
 
 import { memo } from "react";
 import EmptyState from "@/components/EmptyState";
+import TemplateMarketplace from "@/components/TemplateMarketplace";
+import { VIRAL_HOOK_MODES, type ViralHookMode } from "@/lib/viralHooks";
 import { TEMPLATE_LIST, type TemplateId } from "@/lib/templates";
 
 type UploadPanelProps = {
   images: string[];
   templateId: TemplateId;
+  viralMode: ViralHookMode;
+  onViralModeChange: (mode: ViralHookMode) => void;
   onTemplateChange: (id: TemplateId) => void;
   onImagesSelected: (files: File[]) => void;
   onGenerate: () => void;
@@ -17,6 +21,8 @@ type UploadPanelProps = {
 function UploadPanel({
   images,
   templateId,
+  viralMode,
+  onViralModeChange,
   onTemplateChange,
   onImagesSelected,
   onGenerate,
@@ -24,7 +30,7 @@ function UploadPanel({
   isUploading,
 }: UploadPanelProps) {
   return (
-    <section className="min-w-0 rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 transition-shadow duration-300 hover:shadow-[0_0_48px_rgba(0,0,0,0.2)] md:rounded-[40px] md:p-8">
+    <section className="panel-ambient min-w-0 rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 transition-shadow duration-300 hover:shadow-[0_0_48px_rgba(0,0,0,0.2)] md:rounded-[40px] md:p-8">
       <h2 className="mb-6 text-3xl font-bold leading-tight md:mb-8 md:text-5xl">
         Upload
         <br />
@@ -33,10 +39,12 @@ function UploadPanel({
         Images
       </h2>
 
+      <TemplateMarketplace value={templateId} onChange={onTemplateChange} />
+
       <select
         value={templateId}
         onChange={(e) => onTemplateChange(e.target.value as TemplateId)}
-        className="mb-6 w-full min-h-[48px] rounded-2xl bg-[#1a1f2e] p-4 text-base transition-colors duration-200 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#f7c600]/40 md:mb-8 md:p-5 md:text-xl"
+        className="focus-ring mb-6 w-full min-h-[48px] rounded-2xl bg-[#1a1f2e] p-4 text-base transition-colors duration-200 hover:bg-zinc-800 md:mb-8 md:p-5 md:text-xl"
       >
         {TEMPLATE_LIST.map((t) => (
           <option key={t.id} value={t.id}>
@@ -45,6 +53,21 @@ function UploadPanel({
         ))}
       </select>
 
+      <label className="mb-3 block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+        Story energy
+        <select
+          value={viralMode}
+          onChange={(e) => onViralModeChange(e.target.value as ViralHookMode)}
+          className="mt-1 w-full min-h-[44px] rounded-2xl bg-[#1a1f2e] p-3 text-sm text-white ring-1 ring-zinc-800 focus:ring-[#f7c600]/40 md:text-base"
+        >
+          {VIRAL_HOOK_MODES.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       <label className="mb-6 block cursor-pointer md:mb-8">
         <span className="mb-3 block text-xs font-semibold uppercase tracking-wider text-zinc-500">
           Select images
@@ -52,7 +75,7 @@ function UploadPanel({
         <input
           type="file"
           multiple
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
           disabled={isUploading}
           onChange={(e) => {
             const files = Array.from(e.target.files || []);
@@ -71,8 +94,10 @@ function UploadPanel({
 
       {images.length === 0 ? (
         <EmptyState
-          title="No images yet"
-          description="Upload 5–6 food photos to build your Instagram carousel story."
+          icon="🍽"
+          title="Your carousel awaits its first frame"
+          description="Upload 5–6 food photos — we'll stitch them into a cinematic Instagram story with AI captions."
+          actionLabel="Use the file picker above"
         />
       ) : (
         <div className="grid grid-cols-2 gap-3 md:gap-4">

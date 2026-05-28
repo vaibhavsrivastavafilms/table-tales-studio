@@ -1,5 +1,11 @@
 import type { Captions } from "@/lib/slides";
 import { DEFAULT_TEMPLATE_ID, type TemplateId } from "@/lib/templates";
+import {
+  isCaptionsPayloadValid,
+  parseTemplateId,
+  sanitizeCaptions,
+  sanitizeImageUrlList,
+} from "@/lib/validation";
 
 const DRAFT_KEY = "table-tales-studio-draft";
 
@@ -18,7 +24,14 @@ export function loadDraft(): StudioDraft | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StudioDraft;
     if (!parsed.captions || !Array.isArray(parsed.images)) return null;
-    return parsed;
+    const captions = sanitizeCaptions(parsed.captions);
+    if (!isCaptionsPayloadValid(captions)) return null;
+    return {
+      captions,
+      templateId: parseTemplateId(parsed.templateId),
+      images: sanitizeImageUrlList(parsed.images),
+      savedAt: typeof parsed.savedAt === "number" ? parsed.savedAt : Date.now(),
+    };
   } catch {
     return null;
   }
@@ -28,8 +41,13 @@ export function saveDraft(draft: Omit<StudioDraft, "savedAt">): void {
   if (typeof window === "undefined") return;
 
   try {
+    const captions = sanitizeCaptions(draft.captions);
+    if (!isCaptionsPayloadValid(captions)) return;
+
     const payload: StudioDraft = {
-      ...draft,
+      captions,
+      templateId: parseTemplateId(draft.templateId),
+      images: sanitizeImageUrlList(draft.images),
       savedAt: Date.now(),
     };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
