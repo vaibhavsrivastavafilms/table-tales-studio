@@ -1,6 +1,6 @@
 "use client";
 
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Component, type ReactNode } from "react";
 
 type Props = { children: ReactNode };
 
@@ -13,7 +13,7 @@ export default class DashboardErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo): void {
+  componentDidCatch(error: Error): void {
     void import("@/lib/monitoring").then(({ reportClientError }) => {
       reportClientError(error, { source: "dashboard_boundary" });
     });

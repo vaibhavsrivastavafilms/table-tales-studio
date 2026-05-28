@@ -35,7 +35,7 @@ export default function PricingPlans({ compact = false }: PricingPlansProps) {
             <p className="mt-2 text-3xl font-bold text-white">{tier.priceLabel}</p>
             <p className="mt-2 text-sm text-zinc-400">{tier.description}</p>
             <Link
-              href={tier.id === "free" ? "/signup" : "/pricing"}
+              href={tier.id === "free" ? "/dashboard" : "/pricing"}
               className="btn-press mt-6 inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-[#f7c600] text-sm font-bold text-black"
             >
               {tier.cta}

@@ -20,7 +20,6 @@ import { recordExportPreference } from "@/lib/creatorMemory";
 import { canExport, recordExportUsage } from "@/lib/usage";
 import CarouselSlide from "@/components/CarouselSlide";
 import {
-  countExportableSlides,
   exportAllSlides,
   exportSingleSlide,
   type ExportFormat,
@@ -44,6 +43,7 @@ import { recordHealthEvent } from "@/lib/health";
 import { scheduleIdleCleanup } from "@/lib/idleCleanup";
 import { shouldShowToast } from "@/lib/toastCoordinator";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
+import type { StyleReference } from "@/lib/styleReference";
 import type { TemplateId } from "@/lib/templates";
 import { parseExportFormat } from "@/lib/validation";
 
@@ -57,6 +57,8 @@ type ExportPanelProps = {
   showWatermark?: boolean;
   brandKit?: BrandKit;
   cloudSynced?: boolean;
+  storyMood?: string;
+  styleReference?: StyleReference | null;
 };
 
 function ExportPanel({
@@ -69,6 +71,8 @@ function ExportPanel({
   showWatermark = false,
   brandKit,
   cloudSynced = false,
+  storyMood,
+  styleReference,
 }: ExportPanelProps) {
   const [format, setFormat] = useState<ExportFormat>("jpeg");
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -422,6 +426,8 @@ function ExportPanel({
                     templateId={templateId}
                     brandKit={brandKit}
                     watermarkText={watermark}
+                    storyMood={storyMood}
+                    styleReference={styleReference}
                   />
                 </div>
               </div>

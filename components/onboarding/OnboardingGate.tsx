@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { needsOnboarding } from "@/lib/creatorMemory";
+import { useEffect, useRef, useState } from "react";
+import { useIsClient, useNeedsOnboarding } from "@/lib/clientHooks";
 import { initClientMonitoring } from "@/lib/monitoring";
 import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 
@@ -10,22 +10,24 @@ type OnboardingGateProps = {
 };
 
 export default function OnboardingGate({ children }: OnboardingGateProps) {
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [ready, setReady] = useState(false);
+  const isClient = useIsClient();
+  const needsOnboarding = useNeedsOnboarding();
+  const [dismissed, setDismissed] = useState(false);
+  const monitoringStarted = useRef(false);
 
   useEffect(() => {
+    if (!isClient || monitoringStarted.current) return;
+    monitoringStarted.current = true;
     initClientMonitoring();
-    setShowOnboarding(needsOnboarding());
-    setReady(true);
-  }, []);
+  }, [isClient]);
 
-  if (!ready) return children;
+  const showOnboarding = isClient && needsOnboarding && !dismissed;
 
   return (
     <>
       {children}
       {showOnboarding && (
-        <OnboardingFlow onComplete={() => setShowOnboarding(false)} />
+        <OnboardingFlow onComplete={() => setDismissed(true)} />
       )}
     </>
   );

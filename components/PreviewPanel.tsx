@@ -5,6 +5,7 @@ import CarouselSlide from "@/components/CarouselSlide";
 import EmptyState from "@/components/EmptyState";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
+import type { StyleReference } from "@/lib/styleReference";
 import type { TemplateId } from "@/lib/templates";
 
 type PreviewPanelProps = {
@@ -14,6 +15,8 @@ type PreviewPanelProps = {
   slideRefs: MutableRefObject<(HTMLElement | null)[]>;
   showWatermark?: boolean;
   brandKit?: BrandKit;
+  storyMood?: string;
+  styleReference?: StyleReference | null;
   onOpenStoryboard?: () => void;
 };
 
@@ -24,6 +27,8 @@ function PreviewPanel({
   slideRefs,
   showWatermark = false,
   brandKit,
+  storyMood,
+  styleReference,
   onOpenStoryboard,
 }: PreviewPanelProps) {
   const watermark = resolveWatermarkText(brandKit ?? DEFAULT_BRAND_KIT, showWatermark);
@@ -87,6 +92,8 @@ function PreviewPanel({
                   templateId={templateId}
                   brandKit={brandKit}
                   watermarkText={watermark}
+                  storyMood={storyMood}
+                  styleReference={styleReference}
                 />
               </div>
             ))}

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import DashboardClientShell from "@/components/DashboardClientShell";
 import Sidebar from "@/components/Sidebar";
 import PreviewPanel from "@/components/PreviewPanel";
 import ExportPanel from "@/components/ExportPanel";
@@ -31,15 +32,45 @@ import CreatorWelcome from "@/components/CreatorWelcome";
 import BrandKitPanel from "@/components/BrandKitPanel";
 import StoryboardPanel from "@/components/StoryboardPanel";
 import TrendInsights from "@/components/TrendInsights";
+import CreatorInsights from "@/components/CreatorInsights";
+import DirectorIdentityCard from "@/components/DirectorIdentityCard";
+import CreativeDirectionPanel from "@/components/CreativeDirectionPanel";
+import QuickWorkflowsPanel from "@/components/QuickWorkflowsPanel";
+import PlatformModeSelect from "@/components/PlatformModeSelect";
+import SessionExportBar from "@/components/SessionExportBar";
+import VisualStoryBrief from "@/components/VisualStoryBrief";
 import {
-  applySmartDefaults,
+  formatVisualSummary,
+  regeneratePersonalizedStory,
+  runVisualStoryPipeline,
+  type VisualStoryBrief as StoryBrief,
+} from "@/lib/storyDirector";
+import { learnFromStoryGenerated, scheduleDirectorLearning } from "@/lib/directorLearning";
+import { getDirectorProfileSnapshot } from "@/lib/directorProfile";
+import { analyzeImageSet, type VisualAnalysis } from "@/lib/visualAnalysis";
+import { useCreatorMemory, useIsClient } from "@/lib/clientHooks";
+import {
   getWelcomeBackMessage,
+  recordCaptionTone,
+  recordCtaStyle,
+  recordExportCompleted,
   recordCreatorSession,
+  recordPlatformMode,
+  recordStyleReference,
   recordTemplateUse,
   recordViralMode,
-  type WelcomeBackMessage,
+  type NichePreference,
 } from "@/lib/creatorMemory";
-import { loadBrandKit, type BrandKit } from "@/lib/brandKit";
+import { analyzeReferenceStyle } from "@/lib/styleVision";
+import type { StyleReference } from "@/lib/styleReference";
+import { applyQuickWorkflow, type QuickWorkflowId } from "@/lib/quickWorkflows";
+import { getPlatformMode, type PlatformModeId } from "@/lib/platformModes";
+import {
+  DEFAULT_BRAND_KIT,
+  loadBrandKit,
+  saveBrandKit,
+  type BrandKit,
+} from "@/lib/brandKit";
 import type { ViralHookMode } from "@/lib/viralHooks";
 import { enhanceHookLocally } from "@/lib/viralHooks";
 import { MOTION } from "@/lib/motion";
@@ -63,8 +94,11 @@ export default function CarouselEditor({
   const [project, setProject] = useState<Project | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [captions, setCaptions] = useState<Captions>(() => createEmptyCaptions());
-  const [templateId, setTemplateId] =
-    useState<TemplateId>(DEFAULT_TEMPLATE_ID);
+  const creatorMem = useCreatorMemory();
+  const isClient = useIsClient();
+  const [templateId, setTemplateId] = useState<TemplateId>(
+    () => creatorMem.preferredTemplateId ?? DEFAULT_TEMPLATE_ID
+  );
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -73,17 +107,42 @@ export default function CarouselEditor({
     message: string;
     variant: "success" | "error";
   } | null>(null);
-  const [viralMode, setViralMode] = useState<ViralHookMode>("viral");
-  const [brandKit, setBrandKit] = useState<BrandKit>(() =>
-    loadBrandKit(projectId ?? null)
+  const [viralMode, setViralMode] = useState<ViralHookMode>(
+    () => creatorMem.viralMode
   );
+  const [brandKit, setBrandKit] = useState<BrandKit>(DEFAULT_BRAND_KIT);
   const [storyboardOpen, setStoryboardOpen] = useState(false);
-  const [welcome, setWelcome] = useState<WelcomeBackMessage | null>(null);
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
+  const [platformMode, setPlatformMode] = useState<PlatformModeId>(
+    () => creatorMem.platformMode
+  );
+  const [activeWorkflowId, setActiveWorkflowId] =
+    useState<QuickWorkflowId | undefined>(undefined);
+  const [nichePreference, setNichePreference] = useState<NichePreference>(
+    () => creatorMem.nichePreference
+  );
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(
+    projectId ?? null
+  );
+  const [storyBrief, setStoryBrief] = useState<StoryBrief | null>(null);
+  const [lastAnalysis, setLastAnalysis] = useState<VisualAnalysis | null>(null);
+  const [isDirecting, setIsDirecting] = useState(false);
+  const [styleReference, setStyleReference] = useState<StyleReference | null>(null);
+  const [styleReferencePreview, setStyleReferencePreview] = useState<string | null>(
+    null
+  );
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
+  const directorSessionStartedRef = useRef(false);
+  const captionLearnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stylePreviewUrlRef = useRef<string | null>(null);
+
+  const welcome = useMemo(
+    () => (isClient ? getWelcomeBackMessage() : null),
+    [isClient]
+  );
 
   const slideRefs = useRef<(HTMLElement | null)[]>([]);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const activeProjectId = useRef<string | null>(projectId ?? null);
   const loadToastShownRef = useRef(false);
   const [cloudSynced, setCloudSynced] = useState(false);
   const analyticsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,14 +157,33 @@ export default function CarouselEditor({
   );
 
   useEffect(() => {
+    return () => {
+      if (stylePreviewUrlRef.current) {
+        URL.revokeObjectURL(stylePreviewUrlRef.current);
+        stylePreviewUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isClient) return;
     void trackEvent("session_active");
-    const defaults = applySmartDefaults();
-    if (defaults.viralMode) setViralMode(defaults.viralMode);
-    if (defaults.preferredTemplateId && !projectId) {
-      setTemplateId(defaults.preferredTemplateId);
+    if (!directorSessionStartedRef.current) {
+      directorSessionStartedRef.current = true;
+      scheduleDirectorLearning({ type: "session" });
     }
-    setWelcome(getWelcomeBackMessage());
-  }, [projectId]);
+  }, [isClient]);
+
+  useEffect(() => {
+    if (!ready || !isClient) return;
+    if (captionLearnTimerRef.current) clearTimeout(captionLearnTimerRef.current);
+    captionLearnTimerRef.current = setTimeout(() => {
+      scheduleDirectorLearning({ type: "captions", captions });
+    }, 1200);
+    return () => {
+      if (captionLearnTimerRef.current) clearTimeout(captionLearnTimerRef.current);
+    };
+  }, [captions, ready, isClient]);
 
   useEffect(() => {
     if (!ready) return;
@@ -130,7 +208,7 @@ export default function CarouselEditor({
             setCaptions(demo.captions);
             setTemplateId(demo.templateId);
             setImages(demo.images);
-            activeProjectId.current = null;
+            setActiveProjectId(null);
             setProject({
               id: "demo",
               title: demo.title,
@@ -149,17 +227,18 @@ export default function CarouselEditor({
           return;
         }
 
-        let pid = projectId ?? null;
+        const pid = projectId ?? null;
 
         if (pid && isSupabaseConfigured()) {
           const loaded = await loadEditorState(pid);
           if (!cancelled) {
+            const resolvedId = loaded.project?.id ?? pid;
             setProject(loaded.project);
             setCaptions(loaded.state.captions);
             setTemplateId(loaded.state.templateId);
             setImages(loaded.state.images);
-            activeProjectId.current = loaded.project?.id ?? pid;
-            setBrandKit(loadBrandKit(activeProjectId.current));
+            setActiveProjectId(resolvedId);
+            setBrandKit(loadBrandKit(resolvedId));
             setCloudSynced(loaded.source === "cloud");
             if (!loadToastShownRef.current) {
               loadToastShownRef.current = true;
@@ -176,7 +255,8 @@ export default function CarouselEditor({
             setCaptions(loaded.state.captions);
             setTemplateId(loaded.state.templateId);
             setImages(loaded.state.images);
-            activeProjectId.current = null;
+            setActiveProjectId(null);
+            setBrandKit(loadBrandKit(null));
             setCloudSynced(false);
             if (loaded.source === "local" && !loadToastShownRef.current) {
               loadToastShownRef.current = true;
@@ -208,7 +288,7 @@ export default function CarouselEditor({
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       void (async () => {
-        const updated = await persistEditorState(activeProjectId.current, {
+        const updated = await persistEditorState(activeProjectId, {
           captions,
           templateId,
           images,
@@ -216,7 +296,7 @@ export default function CarouselEditor({
         if (updated) {
           setProject(updated);
           setCloudSynced(true);
-          setSaveLabel("Cloud synced");
+          setSaveLabel("Saved to cloud");
         } else {
           setCloudSynced(false);
           setSaveLabel("Saved locally");
@@ -228,7 +308,105 @@ export default function CarouselEditor({
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [captions, templateId, images, ready]);
+  }, [captions, templateId, images, ready, activeProjectId]);
+
+  const runVisualDirector = useCallback(
+    async (urls: string[], fileNames?: string[]) => {
+      if (!urls.length || demoMode) return;
+      setIsDirecting(true);
+      try {
+        const result = await runVisualStoryPipeline({
+          imageUrls: urls,
+          fileNames,
+          memory: {
+            captionTone: creatorMem.captionTone,
+            nichePreference,
+            viralMode,
+            platformMode,
+            preferredTemplateId: creatorMem.preferredTemplateId,
+          },
+          brandCta: brandKit.brandCta || undefined,
+          hookPattern: brandKit.hookPattern || undefined,
+          profile: getDirectorProfileSnapshot(),
+          styleReference: styleReference ?? undefined,
+        });
+        setTemplateId(result.suggestion.template);
+        recordTemplateUse(result.suggestion.template);
+        setCaptions(result.captions);
+        setStoryBrief(result.brief);
+        setLastAnalysis(result.analysis);
+        learnFromStoryGenerated(result.captions, {
+          templateId: result.suggestion.template,
+          viralMode,
+          narrativeAngle: result.brief.narrativeAngle,
+        });
+        showToast("AI-directed story applied");
+        void trackEvent("ai_generation", {
+          templateId: result.suggestion.template,
+          projectId: activeProjectId ?? "",
+        });
+      } catch {
+        showToast("Visual analysis unavailable — edit captions manually", "error");
+      } finally {
+        setIsDirecting(false);
+      }
+    },
+    [
+      activeProjectId,
+      brandKit.brandCta,
+      brandKit.hookPattern,
+      creatorMem.captionTone,
+      creatorMem.preferredTemplateId,
+      demoMode,
+      nichePreference,
+      platformMode,
+      showToast,
+      viralMode,
+      styleReference,
+    ]
+  );
+
+  const handleStyleReferenceSelected = useCallback(
+    async (file: File) => {
+      if (stylePreviewUrlRef.current) {
+        URL.revokeObjectURL(stylePreviewUrlRef.current);
+      }
+      const url = URL.createObjectURL(file);
+      stylePreviewUrlRef.current = url;
+      setStyleReferencePreview(url);
+      setIsAnalyzingStyle(true);
+      try {
+        const analyzed = await analyzeReferenceStyle(url);
+        setStyleReference(analyzed);
+        recordStyleReference({
+          aesthetic: analyzed.aesthetic,
+          compositionStyle: analyzed.compositionStyle,
+          captionDensity: analyzed.captionDensity,
+        });
+        showToast("Reference style detected — slides will follow its language");
+        if (images.length > 0 && !demoMode) {
+          await runVisualDirector(images);
+        }
+      } catch {
+        showToast("Could not read reference style — try another screenshot", "error");
+      } finally {
+        setIsAnalyzingStyle(false);
+      }
+    },
+    [demoMode, images, runVisualDirector, showToast]
+  );
+
+  const handleStyleReferenceClear = useCallback(() => {
+    if (stylePreviewUrlRef.current) {
+      URL.revokeObjectURL(stylePreviewUrlRef.current);
+      stylePreviewUrlRef.current = null;
+    }
+    setStyleReferencePreview(null);
+    setStyleReference(null);
+    setStoryBrief((prev) =>
+      prev ? { ...prev, referenceStyle: undefined } : prev
+    );
+  }, []);
 
   const handleImagesSelected = useCallback(
     async (files: File[]) => {
@@ -240,7 +418,7 @@ export default function CarouselEditor({
       setIsUploading(true);
       try {
         const urls = await uploadImagesForProjectSafe(
-          activeProjectId.current,
+          activeProjectId,
           files,
           images
         );
@@ -248,6 +426,7 @@ export default function CarouselEditor({
         showToast(
           `${files.length} image${files.length > 1 ? "s" : ""} uploaded`
         );
+        await runVisualDirector(urls, files.map((f) => f.name));
       } catch {
         recordHealthEvent("imageLoadFailures");
         showToast("Upload failed — try smaller images", "error");
@@ -255,7 +434,7 @@ export default function CarouselEditor({
         setIsUploading(false);
       }
     },
-    [images, showToast]
+    [activeProjectId, images, runVisualDirector, showToast]
   );
 
   const handleCaptionChange = useCallback(
@@ -268,12 +447,59 @@ export default function CarouselEditor({
   const runGenerateStory = useCallback(async () => {
     setIsGenerating(true);
     try {
-      const templateName = getTemplateConfig(templateId).name;
       recordViralMode(viralMode);
+      recordPlatformMode(platformMode);
+      scheduleDirectorLearning({ type: "viral_mode", mode: viralMode });
+      scheduleDirectorLearning({ type: "template", templateId });
+
+      const profile = getDirectorProfileSnapshot();
+      let analysis = lastAnalysis;
+      if (!analysis && images.length > 0) {
+        analysis = await analyzeImageSet(images.map((url) => ({ url })));
+        setLastAnalysis(analysis);
+      }
+
+      if (analysis) {
+        const result = regeneratePersonalizedStory({
+          analysis,
+          memory: {
+            captionTone: creatorMem.captionTone,
+            nichePreference,
+            viralMode,
+            platformMode,
+          },
+          templateId,
+          brandCta: brandKit.brandCta || undefined,
+          hookPattern: brandKit.hookPattern || undefined,
+          previousCaptions: captions,
+          profile,
+          styleReference: styleReference ?? undefined,
+        });
+        setCaptions(result.captions);
+        setStoryBrief(result.brief);
+        learnFromStoryGenerated(result.captions, {
+          templateId,
+          viralMode,
+          narrativeAngle: result.brief.narrativeAngle,
+        });
+        showToast("Story regenerated — your director kept the mood");
+        void trackEvent("ai_generation", {
+          templateId,
+          projectId: activeProjectId ?? "",
+        });
+        return;
+      }
+
+      const templateName = getTemplateConfig(templateId).name;
       const result = await generateStory({
         template: templateName,
         imageCount: images.length || 5,
         viralMode,
+        captionTone: creatorMem.captionTone,
+        platformMode,
+        hookPattern: brandKit.hookPattern || undefined,
+        brandCta: brandKit.brandCta || undefined,
+        visualSummary: storyBrief ? formatVisualSummary(storyBrief) : undefined,
       });
 
       const next = { ...result.captions };
@@ -284,12 +510,17 @@ export default function CarouselEditor({
         next.cta = brandKit.brandCta;
       }
       setCaptions(next);
+      learnFromStoryGenerated(next, {
+        templateId,
+        viralMode,
+        narrativeAngle: storyBrief?.narrativeAngle,
+      });
 
       if (result.ok) {
         showToast("AI story generated");
         void trackEvent("ai_generation", {
           templateId,
-          projectId: activeProjectId.current ?? "",
+          projectId: activeProjectId ?? "",
         });
       } else {
         showToast(result.error, "error");
@@ -297,32 +528,79 @@ export default function CarouselEditor({
     } finally {
       setIsGenerating(false);
     }
-  }, [images.length, showToast, templateId, viralMode, brandKit.brandCta]);
+  }, [
+    images,
+    showToast,
+    templateId,
+    viralMode,
+    platformMode,
+    brandKit.brandCta,
+    brandKit.hookPattern,
+    creatorMem.captionTone,
+    activeProjectId,
+    storyBrief,
+    lastAnalysis,
+    captions,
+    nichePreference,
+    styleReference,
+  ]);
+
+  const handleQuickWorkflow = useCallback(
+    (workflowId: QuickWorkflowId) => {
+      const applied = applyQuickWorkflow(workflowId);
+      if (!applied) return;
+      setActiveWorkflowId(workflowId);
+      setTemplateId(applied.templateId);
+      setViralMode(applied.viralMode);
+      setPlatformMode(applied.platformMode);
+      recordTemplateUse(applied.templateId);
+      recordViralMode(applied.viralMode);
+      recordPlatformMode(applied.platformMode);
+      recordCaptionTone(applied.captionTone);
+      setNichePreference(applied.nichePreference);
+      const nextKit = saveBrandKit(activeProjectId, applied.brandPatch);
+      setBrandKit(nextKit);
+      setCaptions((prev) => ({
+        ...prev,
+        hook: applied.hookSeed,
+        cta: applied.brandPatch.brandCta ?? prev.cta,
+      }));
+      if (applied.brandPatch.brandCta) {
+        recordCtaStyle(applied.brandPatch.brandCta);
+      }
+      showToast(`${getPlatformMode(applied.platformMode).label} workflow applied`);
+    },
+    [activeProjectId, showToast]
+  );
 
   const handleExportComplete = useCallback(
     (format: string) => {
-      void logExport(activeProjectId.current, format);
+      recordExportCompleted();
+      void logExport(activeProjectId, format);
       void trackEvent("export_generated", {
         format,
-        projectId: activeProjectId.current ?? "",
+        projectId: activeProjectId ?? "",
       });
     },
-    []
+    [activeProjectId]
   );
 
   const showWatermark = shouldShowWatermark();
 
   if (!ready) {
     return (
-      <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 md:p-6">
-        <div className="mx-auto max-w-[1600px]">
-          <DashboardSkeleton />
-        </div>
-      </main>
+      <DashboardClientShell>
+        <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 md:p-6">
+          <div className="mx-auto max-w-[1600px]">
+            <DashboardSkeleton />
+          </div>
+        </main>
+      </DashboardClientShell>
     );
   }
 
   return (
+    <DashboardClientShell>
     <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 text-white md:p-6">
       <ExportToast
         message={toast?.message ?? null}
@@ -355,7 +633,7 @@ export default function CarouselEditor({
                 </p>
               )}
               <p className="mt-2 text-base text-black sm:text-xl xl:mt-3 xl:text-2xl">
-                AI Food Storytelling Carousel Generator
+                AI-directed cinematic storytelling
               </p>
             </div>
             {saveLabel && (
@@ -373,9 +651,30 @@ export default function CarouselEditor({
             </div>
 
             <div className="flex min-w-0 flex-col gap-4 xl:col-span-5 xl:gap-6">
+              <DirectorIdentityCard />
+              <CreatorInsights />
+              <QuickWorkflowsPanel
+                onApply={handleQuickWorkflow}
+                busy={isGenerating}
+              />
+              <PlatformModeSelect
+                value={platformMode}
+                onChange={(mode) => {
+                  setPlatformMode(mode);
+                  recordPlatformMode(mode);
+                  const pm = getPlatformMode(mode);
+                  setViralMode(pm.suggestedViralMode);
+                  recordViralMode(pm.suggestedViralMode);
+                }}
+              />
               <BrandKitPanel
-                projectId={activeProjectId.current}
+                projectId={activeProjectId}
                 onChange={setBrandKit}
+              />
+              <CreativeDirectionPanel
+                templateId={templateId}
+                viralMode={viralMode}
+                niche={nichePreference}
               />
               <TrendInsights
                 onApplyHint={(hint) => {
@@ -386,6 +685,7 @@ export default function CarouselEditor({
                   showToast("Trend applied to hook");
                 }}
               />
+              <VisualStoryBrief brief={storyBrief} loading={isDirecting} />
               <UploadPanel
                 images={images}
                 templateId={templateId}
@@ -393,10 +693,12 @@ export default function CarouselEditor({
                 onViralModeChange={(mode) => {
                   setViralMode(mode);
                   recordViralMode(mode);
+                  scheduleDirectorLearning({ type: "viral_mode", mode });
                 }}
                 onTemplateChange={(id) => {
                   setTemplateId(id);
                   recordTemplateUse(id);
+                  scheduleDirectorLearning({ type: "template", templateId: id });
                   if (analyticsTimerRef.current) {
                     clearTimeout(analyticsTimerRef.current);
                   }
@@ -405,6 +707,11 @@ export default function CarouselEditor({
                   }, MOTION.analyticsDebounceMs);
                 }}
                 onImagesSelected={handleImagesSelected}
+                onStyleReferenceSelected={handleStyleReferenceSelected}
+                onStyleReferenceClear={handleStyleReferenceClear}
+                styleReferencePreview={styleReferencePreview}
+                styleReference={styleReference}
+                isAnalyzingStyle={isAnalyzingStyle}
                 onGenerate={runGenerateStory}
                 isGenerating={isGenerating}
                 isUploading={isUploading}
@@ -412,8 +719,19 @@ export default function CarouselEditor({
               <StoryPanel
                 captions={captions}
                 onCaptionChange={handleCaptionChange}
+                onCaptionsReplace={setCaptions}
                 isGenerating={isGenerating}
                 viralMode={viralMode}
+              />
+              <SessionExportBar
+                projectId={activeProjectId}
+                templateId={templateId}
+                captions={captions}
+                images={images}
+                viralMode={viralMode}
+                platformMode={platformMode}
+                brandKit={brandKit}
+                workflowId={activeWorkflowId}
               />
             </div>
 
@@ -425,6 +743,8 @@ export default function CarouselEditor({
                 slideRefs={slideRefs}
                 showWatermark={showWatermark}
                 brandKit={brandKit}
+                storyMood={storyBrief?.mood}
+                styleReference={styleReference}
                 onOpenStoryboard={() => setStoryboardOpen(true)}
               />
               <ExportPanel
@@ -437,6 +757,8 @@ export default function CarouselEditor({
                 showWatermark={showWatermark}
                 brandKit={brandKit}
                 cloudSynced={cloudSynced}
+                storyMood={storyBrief?.mood}
+                styleReference={styleReference}
               />
             </div>
           </div>
@@ -450,8 +772,11 @@ export default function CarouselEditor({
         captions={captions}
         templateId={templateId}
         brandKit={brandKit}
+        storyMood={storyBrief?.mood}
+        styleReference={styleReference}
         showPlanWatermark={showWatermark}
       />
     </main>
+    </DashboardClientShell>
   );
 }

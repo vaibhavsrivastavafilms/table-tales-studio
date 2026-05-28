@@ -1,64 +1,73 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import type { Database } from "@/lib/database.types";
-import { getSafeRedirectPath } from "@/lib/safeRedirect";
+import { NextResponse, type NextRequest } from "next/server";
+import { createMiddlewareClient, isSupabaseConfigured } from "@/lib/supabase";
 
-const PROTECTED_PREFIXES = ["/dashboard"];
-
-function isProtectedPath(pathname: string): boolean {
-  return PROTECTED_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+function isPublicDashboardPath(pathname: string): boolean {
+  return (
+    pathname === "/dashboard/demo" ||
+    pathname.startsWith("/dashboard/demo/") ||
+    pathname === "/dashboard/local" ||
+    pathname.startsWith("/dashboard/local/")
   );
 }
 
 export async function middleware(request: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  const { pathname } = request.nextUrl;
 
-  if (!url || !anonKey) {
+  if (!pathname.startsWith("/dashboard")) {
     return NextResponse.next();
   }
 
-  let response = NextResponse.next({
-    request: { headers: request.headers },
-  });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
 
-  const supabase = createServerClient<Database>(url, anonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-        response = NextResponse.next({ request: { headers: request.headers } });
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-  });
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  if (isProtectedPath(pathname) && !user) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", getSafeRedirectPath(pathname));
-    return NextResponse.redirect(loginUrl);
+  if (!isSupabaseConfigured() || isPublicDashboardPath(pathname)) {
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
   }
 
-  if ((pathname === "/login" || pathname === "/signup") && user) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+
+  try {
+    const supabase = await createMiddlewareClient(
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          set: (name, value) => {
+            request.cookies.set(name, value);
+          },
+        },
+      },
+      {
+        cookies: {
+          set: (name, value, options) => {
+            response.cookies.set(name, value, options);
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/dashboard/local";
+      redirectUrl.searchParams.set("auth", "required");
+      return NextResponse.redirect(redirectUrl);
+    }
+  } catch {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/dashboard/local";
+    return NextResponse.redirect(redirectUrl);
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/signup"],
+  matcher: ["/dashboard/:path*"],
 };

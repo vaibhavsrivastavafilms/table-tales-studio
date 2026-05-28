@@ -37,7 +37,7 @@ export async function loadEditorState(
           source: "cloud",
         };
       }
-    } catch (error) {
+    } catch {
       const { logMonitoring } = await import("@/lib/monitoring");
       logMonitoring("cloud_load_failed", "warn");
     }
@@ -108,7 +108,7 @@ export async function persistEditorState(
       templateId: state.templateId,
       images: state.images,
     });
-  } catch (error) {
+  } catch {
     recordHealthEvent("syncTimeouts");
     const { logMonitoring } = await import("@/lib/monitoring");
     logMonitoring("cloud_save_failed", "warn");

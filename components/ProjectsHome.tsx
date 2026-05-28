@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import DashboardClientShell from "@/components/DashboardClientShell";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
 import Sidebar from "@/components/Sidebar";
 import {
@@ -13,7 +14,7 @@ import {
   updateProject,
   type Project,
 } from "@/lib/projects";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { TEMPLATE_LIST } from "@/lib/templates";
 import CreatorAnalyticsCard from "@/components/CreatorAnalyticsCard";
 import EmptyState from "@/components/EmptyState";
@@ -26,28 +27,51 @@ export default function ProjectsHome() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (!isSupabaseConfigured()) {
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setProjects(await listProjects());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load projects");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [hasCloudSession, setHasCloudSession] = useState(false);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+
+    void (async () => {
+      if (!isSupabaseConfigured()) {
+        if (!cancelled) {
+          startTransition(() => setLoading(false));
+        }
+        return;
+      }
+
+      try {
+        const supabase = createBrowserClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const list = user ? await listProjects() : [];
+        if (!cancelled) {
+          startTransition(() => {
+            setHasCloudSession(!!user);
+            setProjects(list);
+            setLoading(false);
+          });
+        }
+      } catch (err) {
+        if (!cancelled) {
+          startTransition(() => {
+            setError(
+              err instanceof Error ? err.message : "Failed to load projects"
+            );
+            setLoading(false);
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleCreate = async (templateId?: string) => {
-    if (!isSupabaseConfigured()) {
+    if (!isSupabaseConfigured() || !hasCloudSession) {
       router.push("/dashboard/local");
       return;
     }
@@ -65,7 +89,12 @@ export default function ProjectsHome() {
       await trackEvent("template_used", { templateId: tid });
       router.push(`/dashboard/${project.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create project");
+      const message = err instanceof Error ? err.message : "Could not create project";
+      if (message === "Not authenticated") {
+        router.push("/dashboard/local");
+        return;
+      }
+      setError(message);
     } finally {
       setBusyId(null);
     }
@@ -75,7 +104,9 @@ export default function ProjectsHome() {
     setBusyId(id);
     try {
       const copy = await duplicateProject(id);
-      await load();
+      if (isSupabaseConfigured()) {
+        setProjects(await listProjects());
+      }
       router.push(`/dashboard/${copy.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Duplicate failed");
@@ -109,15 +140,18 @@ export default function ProjectsHome() {
 
   if (loading) {
     return (
-      <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 md:p-6">
-        <div className="mx-auto max-w-[1600px]">
-          <DashboardSkeleton />
-        </div>
-      </main>
+      <DashboardClientShell>
+        <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 md:p-6">
+          <div className="mx-auto max-w-[1600px]">
+            <DashboardSkeleton />
+          </div>
+        </main>
+      </DashboardClientShell>
     );
   }
 
   return (
+    <DashboardClientShell>
     <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 text-white md:p-6">
       <div className="mx-auto min-w-0 max-w-[1600px]">
         <header className="mb-6 md:mb-10">
@@ -196,6 +230,18 @@ export default function ProjectsHome() {
                   onSecondary={() => router.push("/dashboard/demo")}
                 />
               </section>
+            ) : !hasCloudSession ? (
+              <section className="rounded-[40px] bg-[#0b0f1a] p-8 ring-1 ring-white/5">
+                <EmptyState
+                  icon="✨"
+                  title="Start creating instantly"
+                  description="Open the studio and upload photos — AI directs your carousel instantly. Optional cloud sync when configured."
+                  actionLabel="Open local editor"
+                  onAction={() => router.push("/dashboard/local")}
+                  secondaryLabel="Open sample demo"
+                  onSecondary={() => router.push("/dashboard/demo")}
+                />
+              </section>
             ) : projects.length === 0 ? (
               <section className="rounded-[40px] bg-[#0b0f1a] p-8 ring-1 ring-white/5">
                 <EmptyState
@@ -260,5 +306,6 @@ export default function ProjectsHome() {
         </div>
       </div>
     </main>
+    </DashboardClientShell>
   );
 }

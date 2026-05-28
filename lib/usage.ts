@@ -9,38 +9,25 @@ export type UsageCheckResult =
   | { allowed: false; reason: string };
 
 export function getUserPlan(): PlanId {
-  if (process.env.NEXT_PUBLIC_FORCE_PREMIUM === "true") {
-    return "premium";
-  }
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("table-tales-plan");
-    if (stored === "premium") return "premium";
-  }
-  return "free";
+  return "premium";
 }
 
 export function shouldShowWatermark(): boolean {
-  return getPlanLimits(getUserPlan()).watermark;
+  return false;
 }
 
-export function canCreateProject(currentCount: number): UsageCheckResult {
-  const limits = getPlanLimits(getUserPlan());
-  if (currentCount >= limits.maxProjects) {
-    return {
-      allowed: false,
-      reason: `Free plan allows ${limits.maxProjects} projects. Upgrade for unlimited.`,
-    };
-  }
+export function canCreateProject(_count?: number): UsageCheckResult {
+  void _count;
   return { allowed: true };
 }
 
 export function canExport(): UsageCheckResult {
-  const limits = getPlanLimits(getUserPlan());
+  const limits = getPlanLimits("premium");
   const today = getTodayExportCount();
   if (today >= limits.maxExportsPerDay) {
     return {
       allowed: false,
-      reason: `Daily export limit reached (${limits.maxExportsPerDay}). Try again tomorrow.`,
+      reason: `You've reached today's export limit. Try again tomorrow.`,
     };
   }
   return { allowed: true };

@@ -108,7 +108,7 @@ async function safeCapture(
 
   try {
     return await withTimeout(runCapture(), EXPORT_TIMEOUT_MS);
-  } catch (error) {
+  } catch {
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     try {

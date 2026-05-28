@@ -10,6 +10,7 @@ import { hasOpenAiKey } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { logMonitoring } from "@/lib/monitoring";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { parsePlatformMode } from "@/lib/platformModes";
 import { parseViralMode } from "@/lib/viralHooks";
 import {
   clampImageCount,
@@ -50,6 +51,17 @@ export async function POST(req: Request) {
     typeof body.captionTone === "string"
       ? body.captionTone.slice(0, 40)
       : undefined;
+  const platformMode = parsePlatformMode(body.platformMode);
+  const hookPattern =
+    typeof body.hookPattern === "string"
+      ? body.hookPattern.slice(0, 120)
+      : undefined;
+  const brandCta =
+    typeof body.brandCta === "string" ? body.brandCta.slice(0, 120) : undefined;
+  const visualSummary =
+    typeof body.visualSummary === "string"
+      ? body.visualSummary.slice(0, 500)
+      : undefined;
 
   const ip = clientIp(req);
   const rate = checkRateLimit(`generate:${ip}`, 20, 60_000);
@@ -74,6 +86,10 @@ export async function POST(req: Request) {
     const prompt = buildStoryPrompt(template, imageCount, {
       viralMode,
       captionTone,
+      platformMode,
+      hookPattern,
+      brandCta,
+      visualSummary,
     });
 
     const completion = await client.chat.completions.create({

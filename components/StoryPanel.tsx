@@ -2,12 +2,15 @@
 
 import { memo } from "react";
 import AISuggestions from "@/components/AISuggestions";
+import ViralHooksBar from "@/components/ViralHooksBar";
+import RewriteBar from "@/components/RewriteBar";
 import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { ViralHookMode } from "@/lib/viralHooks";
 
 type StoryPanelProps = {
   captions: Captions;
   onCaptionChange: (key: keyof Captions, value: string) => void;
+  onCaptionsReplace?: (captions: Captions) => void;
   isGenerating: boolean;
   viralMode?: ViralHookMode;
 };
@@ -24,6 +27,7 @@ function StorySkeleton() {
 function StoryPanel({
   captions,
   onCaptionChange,
+  onCaptionsReplace,
   isGenerating,
   viralMode = "viral",
 }: StoryPanelProps) {
@@ -45,11 +49,21 @@ function StoryPanel({
       )}
 
       {!isGenerating && (
-        <AISuggestions
-          captions={captions}
-          viralMode={viralMode}
-          onApply={onCaptionChange}
-        />
+        <>
+          <ViralHooksBar
+            viralMode={viralMode}
+            currentHook={captions.hook}
+            onApplyHook={(hook) => onCaptionChange("hook", hook)}
+          />
+          {onCaptionsReplace && (
+            <RewriteBar captions={captions} onApply={onCaptionsReplace} />
+          )}
+          <AISuggestions
+            captions={captions}
+            viralMode={viralMode}
+            onApply={onCaptionChange}
+          />
+        </>
       )}
 
       {isGenerating

@@ -2,13 +2,35 @@ export type TemplateId =
   | "street-food"
   | "cinematic-dark"
   | "founder-story"
-  | "luxury-dining";
+  | "luxury-dining"
+  | "rich-relationship";
 
 export type CaptionAlignment = "left" | "center" | "right";
+export type CaptionDensity = "sparse" | "balanced" | "dense";
+export type BadgeStyle = "bold" | "elegant" | "documentary" | "comic-sticker";
+export type MotionFeel = "punchy" | "slow" | "warm" | "editorial";
+export type TemplateCategory =
+  | "Street"
+  | "Cinematic"
+  | "Founder"
+  | "Luxury"
+  | "Emotional Editorial";
+
+export type TemplateVisualTreatment = {
+  overlayIntensity: number;
+  captionDensity: CaptionDensity;
+  imageContrast: number;
+  imageSaturation: number;
+  grainOpacity: number;
+  glowStrength: number;
+  badgeStyle: BadgeStyle;
+  motionFeel: MotionFeel;
+};
 
 export type TemplateConfig = {
   id: TemplateId;
   name: string;
+  category?: TemplateCategory;
   badgeText: string;
   accentColor: string;
   overlayGradient: string;
@@ -17,6 +39,7 @@ export type TemplateConfig = {
   captionAlignment: CaptionAlignment;
   bottomFadeOpacity: number;
   accentLineWidth: number;
+  visual: TemplateVisualTreatment;
 };
 
 export const TEMPLATE_LIST: TemplateConfig[] = [
@@ -32,6 +55,16 @@ export const TEMPLATE_LIST: TemplateConfig[] = [
     captionAlignment: "center",
     bottomFadeOpacity: 0.88,
     accentLineWidth: 48,
+    visual: {
+      overlayIntensity: 0.72,
+      captionDensity: "balanced",
+      imageContrast: 1.08,
+      imageSaturation: 1.12,
+      grainOpacity: 0.06,
+      glowStrength: 0.35,
+      badgeStyle: "documentary",
+      motionFeel: "punchy",
+    },
   },
   {
     id: "cinematic-dark",
@@ -45,6 +78,16 @@ export const TEMPLATE_LIST: TemplateConfig[] = [
     captionAlignment: "center",
     bottomFadeOpacity: 0.92,
     accentLineWidth: 56,
+    visual: {
+      overlayIntensity: 0.88,
+      captionDensity: "sparse",
+      imageContrast: 1.05,
+      imageSaturation: 0.92,
+      grainOpacity: 0.1,
+      glowStrength: 0.5,
+      badgeStyle: "elegant",
+      motionFeel: "warm",
+    },
   },
   {
     id: "founder-story",
@@ -58,6 +101,16 @@ export const TEMPLATE_LIST: TemplateConfig[] = [
     captionAlignment: "left",
     bottomFadeOpacity: 0.82,
     accentLineWidth: 40,
+    visual: {
+      overlayIntensity: 0.65,
+      captionDensity: "balanced",
+      imageContrast: 1.02,
+      imageSaturation: 1,
+      grainOpacity: 0.04,
+      glowStrength: 0.28,
+      badgeStyle: "bold",
+      motionFeel: "slow",
+    },
   },
   {
     id: "luxury-dining",
@@ -71,6 +124,40 @@ export const TEMPLATE_LIST: TemplateConfig[] = [
     captionAlignment: "center",
     bottomFadeOpacity: 0.9,
     accentLineWidth: 52,
+    visual: {
+      overlayIntensity: 0.82,
+      captionDensity: "sparse",
+      imageContrast: 1.04,
+      imageSaturation: 0.95,
+      grainOpacity: 0.05,
+      glowStrength: 0.42,
+      badgeStyle: "elegant",
+      motionFeel: "slow",
+    },
+  },
+  {
+    id: "rich-relationship",
+    name: "Rich Relationship",
+    category: "Emotional Editorial",
+    badgeText: "Editorial",
+    accentColor: "#e8c4a0",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(255,248,240,0.12) 0%, transparent 28%, transparent 62%, rgba(20,12,8,0.35) 100%)",
+    vignetteIntensity: 0.22,
+    fontScale: 0.95,
+    captionAlignment: "center",
+    bottomFadeOpacity: 0.35,
+    accentLineWidth: 0,
+    visual: {
+      overlayIntensity: 0.18,
+      captionDensity: "sparse",
+      imageContrast: 1.08,
+      imageSaturation: 1.04,
+      grainOpacity: 0.02,
+      glowStrength: 0.12,
+      badgeStyle: "comic-sticker",
+      motionFeel: "editorial",
+    },
   },
 ];
 
@@ -92,4 +179,10 @@ export function getTemplateConfig(
 export function getTemplateId(templateIdOrName: string): TemplateId {
   const config = getTemplateConfig(templateIdOrName);
   return config.id;
+}
+
+export function isRichRelationshipTemplate(
+  templateId: string | undefined
+): boolean {
+  return templateId === "rich-relationship";
 }

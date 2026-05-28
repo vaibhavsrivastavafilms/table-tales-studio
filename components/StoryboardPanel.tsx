@@ -5,6 +5,7 @@ import CarouselSlide from "@/components/CarouselSlide";
 import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { TemplateId } from "@/lib/templates";
 import type { BrandKit } from "@/lib/brandKit";
+import type { StyleReference } from "@/lib/styleReference";
 import { resolveWatermarkText } from "@/lib/brandKit";
 
 type StoryboardPanelProps = {
@@ -14,6 +15,8 @@ type StoryboardPanelProps = {
   captions: Captions;
   templateId: TemplateId;
   brandKit: BrandKit;
+  storyMood?: string;
+  styleReference?: StyleReference | null;
   showPlanWatermark: boolean;
 };
 
@@ -24,6 +27,8 @@ function StoryboardPanel({
   captions,
   templateId,
   brandKit,
+  storyMood,
+  styleReference,
   showPlanWatermark,
 }: StoryboardPanelProps) {
   const [index, setIndex] = useState(0);
@@ -94,6 +99,8 @@ function StoryboardPanel({
             templateId={templateId}
             brandKit={brandKit}
             watermarkText={watermark}
+            storyMood={storyMood}
+            styleReference={styleReference}
           />
         </div>
 

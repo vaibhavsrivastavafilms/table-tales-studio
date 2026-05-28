@@ -12,16 +12,17 @@ type SidebarProps = {
 
 export default function Sidebar({ onLogout }: SidebarProps) {
   const router = useRouter();
+  const hasCloud = isSupabaseConfigured();
 
-  const handleLogout = async () => {
-    if (isSupabaseConfigured()) {
+  const handleClearSession = async () => {
+    if (hasCloud) {
       const supabase = createBrowserClient();
       await supabase.auth.signOut();
       clearDraft();
-      logMonitoring("auth_logout", "info");
+      logMonitoring("session_cleared", "info");
     }
     onLogout?.();
-    router.push("/login");
+    router.push("/dashboard");
     router.refresh();
   };
 
@@ -36,7 +37,13 @@ export default function Sidebar({ onLogout }: SidebarProps) {
           href="/dashboard"
           className="block transition-colors duration-200 hover:text-white"
         >
-          Projects
+          Studio
+        </Link>
+        <Link
+          href="/dashboard/local"
+          className="block transition-colors duration-200 hover:text-white"
+        >
+          Local workspace
         </Link>
         <Link
           href="/dashboard/demo"
@@ -44,19 +51,15 @@ export default function Sidebar({ onLogout }: SidebarProps) {
         >
           Sample demo
         </Link>
-        <Link
-          href="/pricing"
-          className="block transition-colors duration-200 hover:text-white"
-        >
-          Pricing
-        </Link>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="block text-left transition-colors duration-200 hover:text-[#f7c600]"
-        >
-          Log out
-        </button>
+        {hasCloud && (
+          <button
+            type="button"
+            onClick={handleClearSession}
+            className="block text-left transition-colors duration-200 hover:text-[#f7c600]"
+          >
+            Clear cloud session
+          </button>
+        )}
       </nav>
     </aside>
   );

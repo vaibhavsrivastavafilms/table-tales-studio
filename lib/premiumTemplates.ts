@@ -1,6 +1,4 @@
 import type { TemplateId } from "@/lib/templates";
-import { getUserPlan } from "@/lib/usage";
-
 export type PremiumTemplateMeta = {
   id: TemplateId | string;
   name: string;
@@ -40,6 +38,13 @@ export const MARKETPLACE_TEMPLATES: PremiumTemplateMeta[] = [
     premium: false,
   },
   {
+    id: "rich-relationship",
+    name: "Rich Relationship",
+    tagline: "Emotional editorial · comic stickers on warm food",
+    previewAccent: "#e8c4a0",
+    premium: false,
+  },
+  {
     id: "neon-night-market",
     name: "Neon Night Market",
     tagline: "Vibrant street neon · late-night energy",
@@ -60,9 +65,8 @@ export function isPremiumTemplate(templateId: string): boolean {
   return entry?.premium ?? false;
 }
 
-export function canUseTemplate(templateId: string): boolean {
-  if (!isPremiumTemplate(templateId)) return true;
-  return getUserPlan() === "premium";
+export function canUseTemplate(): boolean {
+  return true;
 }
 
 export function resolveTemplateForExport(
@@ -74,7 +78,8 @@ export function resolveTemplateForExport(
     templateId === "street-food" ||
     templateId === "cinematic-dark" ||
     templateId === "founder-story" ||
-    templateId === "luxury-dining"
+    templateId === "luxury-dining" ||
+    templateId === "rich-relationship"
   ) {
     return templateId;
   }

@@ -6,6 +6,27 @@ export type ViralHookMode =
   | "funny"
   | "aesthetic";
 
+export type HookCategory =
+  | "curiosity"
+  | "emotional"
+  | "authority"
+  | "storytelling"
+  | "nostalgia"
+  | "luxury"
+  | "street-food"
+  | "founder";
+
+export const HOOK_CATEGORIES: { id: HookCategory; label: string }[] = [
+  { id: "curiosity", label: "Curiosity" },
+  { id: "emotional", label: "Emotional" },
+  { id: "authority", label: "Authority" },
+  { id: "storytelling", label: "Storytelling" },
+  { id: "nostalgia", label: "Nostalgia" },
+  { id: "luxury", label: "Luxury" },
+  { id: "street-food", label: "Street food" },
+  { id: "founder", label: "Founder" },
+];
+
 export const VIRAL_HOOK_MODES: { id: ViralHookMode; label: string }[] = [
   { id: "viral", label: "Viral" },
   { id: "emotional", label: "Emotional" },
@@ -64,6 +85,89 @@ export function parseViralMode(value: unknown): ViralHookMode {
     return value as ViralHookMode;
   }
   return "viral";
+}
+
+const HOOK_LIBRARY: Record<HookCategory, string[]> = {
+  curiosity: [
+    "Nobody noticed this tiny food stall… until now.",
+    "Ahmedabad almost lost this hidden place.",
+    "The menu has one item. The line has forty people.",
+  ],
+  emotional: [
+    "The first bite that made everything quiet.",
+    "Some meals become the place you miss.",
+    "We come back because the table remembers us.",
+  ],
+  authority: [
+    "The chef who trained in Paris — now on this corner.",
+    "Three Michelin habits. One neighborhood kitchen.",
+    "When the regulars stop recommending it, you know it's real.",
+  ],
+  storytelling: [
+    "Every slide is a chapter you can taste.",
+    "This isn't a review. It's the night we found it.",
+    "From first flame to last plate — the full story.",
+  ],
+  nostalgia: [
+    "Same lane. Same smell. Twenty years later.",
+    "Grandmother's recipe, street cart courage.",
+    "The city changed. This flavor didn't.",
+  ],
+  luxury: [
+    "They don't plate silence like this anymore.",
+    "An evening reserved for those who notice craft.",
+    "Gold leaf isn't the luxury — patience is.",
+  ],
+  "street-food": [
+    "The stall that only opens after midnight.",
+    "Spice so honest the whole block leans in.",
+    "Two dollars. Zero compromise on flavor.",
+  ],
+  founder: [
+    "This restaurant started with one table.",
+    "We almost shut down twice. Here's why we didn't.",
+    "Built in public — one plate at a time.",
+  ],
+};
+
+export function getViralHooks(
+  category: HookCategory,
+  count = 5
+): string[] {
+  const pool = HOOK_LIBRARY[category] ?? HOOK_LIBRARY.curiosity;
+  return pool.slice(0, Math.min(count, pool.length));
+}
+
+export function remixHook(hook: string, category: HookCategory): string {
+  const trimmed = hook.trim();
+  const seed = getViralHooks(category, 1)[0] ?? "";
+  if (!trimmed) return seed;
+  const fragments = trimmed.split(/[.!?]/).filter(Boolean);
+  const core = fragments[0]?.trim() ?? trimmed;
+  const alt = getViralHooks(category, 3).find((h) => !h.includes(core.slice(0, 12)));
+  if (alt) return alt;
+  return `${seed.split(".")[0]}. ${core}.`;
+}
+
+export function getHookVariants(hook: string, category: HookCategory): string[] {
+  const base = hook.trim() || (getViralHooks(category, 1)[0] ?? "");
+  return [
+    base,
+    remixHook(base, category),
+    ...getViralHooks(category, 3).filter((h) => h !== base),
+  ].slice(0, 5);
+}
+
+export function categoryForMode(mode: ViralHookMode): HookCategory {
+  const map: Record<ViralHookMode, HookCategory> = {
+    viral: "curiosity",
+    emotional: "emotional",
+    luxury: "luxury",
+    founder: "founder",
+    funny: "storytelling",
+    aesthetic: "nostalgia",
+  };
+  return map[mode] ?? "curiosity";
 }
 
 export function enhanceHookLocally(hook: string, mode: ViralHookMode): string {

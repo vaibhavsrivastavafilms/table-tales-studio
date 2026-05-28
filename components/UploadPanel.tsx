@@ -2,7 +2,9 @@
 
 import { memo } from "react";
 import EmptyState from "@/components/EmptyState";
+import StyleReferenceCard from "@/components/StyleReferenceCard";
 import TemplateMarketplace from "@/components/TemplateMarketplace";
+import type { StyleReference } from "@/lib/styleReference";
 import { VIRAL_HOOK_MODES, type ViralHookMode } from "@/lib/viralHooks";
 import { TEMPLATE_LIST, type TemplateId } from "@/lib/templates";
 
@@ -13,6 +15,11 @@ type UploadPanelProps = {
   onViralModeChange: (mode: ViralHookMode) => void;
   onTemplateChange: (id: TemplateId) => void;
   onImagesSelected: (files: File[]) => void;
+  onStyleReferenceSelected?: (file: File) => void;
+  onStyleReferenceClear?: () => void;
+  styleReferencePreview?: string | null;
+  styleReference?: StyleReference | null;
+  isAnalyzingStyle?: boolean;
   onGenerate: () => void;
   isGenerating: boolean;
   isUploading: boolean;
@@ -25,6 +32,11 @@ function UploadPanel({
   onViralModeChange,
   onTemplateChange,
   onImagesSelected,
+  onStyleReferenceSelected,
+  onStyleReferenceClear,
+  styleReferencePreview = null,
+  styleReference = null,
+  isAnalyzingStyle = false,
   onGenerate,
   isGenerating,
   isUploading,
@@ -67,6 +79,35 @@ function UploadPanel({
           ))}
         </select>
       </label>
+
+      <div className="mb-6 md:mb-8">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Reference style (optional)
+        </p>
+        <p className="mb-3 text-[11px] leading-relaxed text-zinc-600">
+          Upload a carousel screenshot to mimic its storytelling aesthetic — layout,
+          stickers, and type rhythm inspired on your food photos.
+        </p>
+        <label className="block cursor-pointer">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            disabled={isAnalyzingStyle || isUploading}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file && onStyleReferenceSelected) onStyleReferenceSelected(file);
+              e.target.value = "";
+            }}
+            className="block w-full min-h-[40px] text-sm text-zinc-400 file:mr-4 file:min-h-[40px] file:rounded-xl file:border-0 file:bg-zinc-800 file:px-4 file:py-2 file:font-semibold file:text-[#f7c600] transition-opacity hover:file:bg-zinc-700 disabled:opacity-50"
+          />
+        </label>
+        <StyleReferenceCard
+          previewUrl={styleReferencePreview}
+          style={styleReference}
+          loading={isAnalyzingStyle}
+          onClear={onStyleReferenceClear}
+        />
+      </div>
 
       <label className="mb-6 block cursor-pointer md:mb-8">
         <span className="mb-3 block text-xs font-semibold uppercase tracking-wider text-zinc-500">

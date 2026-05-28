@@ -1,6 +1,7 @@
 import type { Captions } from "@/lib/slides";
 import { createEmptyCaptions } from "@/lib/draftStorage";
 import { sanitizeCaptions } from "@/lib/validation";
+import type { PlatformModeId } from "@/lib/platformModes";
 import type { ViralHookMode } from "@/lib/viralHooks";
 import type { CaptionTone } from "@/lib/creatorMemory";
 import { recordHealthEvent } from "@/lib/health";
@@ -19,6 +20,10 @@ export type GenerateStoryPayload = {
   imageCount: number;
   viralMode?: ViralHookMode;
   captionTone?: CaptionTone;
+  platformMode?: PlatformModeId;
+  hookPattern?: string;
+  brandCta?: string;
+  visualSummary?: string;
 };
 
 export type GenerateStoryResult =

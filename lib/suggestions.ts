@@ -75,7 +75,11 @@ export function generateCaptionSuggestions(
   viralMode: ViralHookMode
 ): CaptionSuggestion[] {
   const out: CaptionSuggestion[] = [];
-  const phrase = FOOD_PHRASES[Math.floor(Date.now() / 86_400_000) % FOOD_PHRASES.length];
+  const seed =
+    captions.hook.length +
+    captions.slide1.length +
+    captions.slide2.length;
+  const phrase = FOOD_PHRASES[seed % FOOD_PHRASES.length];
 
   if (captions.hook.trim()) {
     out.push({
@@ -87,7 +91,7 @@ export function generateCaptionSuggestions(
     });
   }
 
-  if (captions.cta.trim() || true) {
+  if (captions.cta.trim()) {
     out.push({
       id: "cta-optimize",
       field: "cta",

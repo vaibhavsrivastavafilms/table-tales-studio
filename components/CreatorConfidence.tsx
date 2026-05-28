@@ -6,7 +6,7 @@ import type { ConfidenceBadge } from "@/lib/exportPreflight";
 const BADGE_COPY: Record<ConfidenceBadge, string> = {
   "slides-validated": "Slides validated",
   "export-optimized": "Export optimized",
-  "cloud-synced": "Cloud synced",
+  "cloud-synced": "Backed up",
   "instagram-ready": "Ready for Instagram",
 };
 

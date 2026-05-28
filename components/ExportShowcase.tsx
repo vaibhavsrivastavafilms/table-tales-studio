@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useMemo, useState } from "react";
+import { useIsClient } from "@/lib/clientHooks";
 import {
   enrichShowcase,
   type ShowcaseEntry,
@@ -12,14 +13,16 @@ type ExportShowcaseProps = {
 };
 
 function ExportShowcase({ refreshKey = 0 }: ExportShowcaseProps) {
-  const [entries, setEntries] = useState<ShowcaseEntry[]>([]);
+  const isClient = useIsClient();
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    setEntries(enrichShowcase(loadExportHistory()));
-  }, [refreshKey]);
+  const entries = useMemo((): ShowcaseEntry[] => {
+    if (!isClient) return [];
+    void refreshKey;
+    return enrichShowcase(loadExportHistory());
+  }, [isClient, refreshKey]);
 
-  if (entries.length === 0) return null;
+  if (!isClient || entries.length === 0) return null;
 
   if (!open) {
     return (
@@ -34,14 +37,9 @@ function ExportShowcase({ refreshKey = 0 }: ExportShowcaseProps) {
   }
 
   return (
-    <section className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/30 p-4">
-      <div className="mb-3 flex justify-between">
-        <div>
-          <p className="text-sm font-bold text-[#f7c600]">Export showcase</p>
-          <p className="text-[10px] text-zinc-500">
-            Recent creator exports — your carousel wins
-          </p>
-        </div>
+    <section className="mb-4 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 ring-1 ring-white/5">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-bold text-[#f7c600]">Export gallery</h3>
         <button
           type="button"
           onClick={() => setOpen(false)}
@@ -50,31 +48,28 @@ function ExportShowcase({ refreshKey = 0 }: ExportShowcaseProps) {
           Collapse
         </button>
       </div>
-      <ul className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        {entries.slice(0, 4).map((e) => (
-          <li
-            key={e.id}
-            className="rounded-xl border border-zinc-800 bg-black/40 p-2"
+      <div className="grid grid-cols-3 gap-2">
+        {entries.map((entry) => (
+          <div
+            key={entry.id}
+            className="overflow-hidden rounded-lg bg-black ring-1 ring-zinc-800"
           >
-            <div className="aspect-[4/5] overflow-hidden rounded-lg bg-gradient-to-br from-zinc-800 to-zinc-900">
-              {e.thumbDataUrl ? (
-                <img
-                  src={e.thumbDataUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-[10px] text-zinc-600">
-                  {e.slideCount} slides
-                </div>
-              )}
-            </div>
-            <p className="mt-1 truncate text-[10px] text-zinc-500">
-              {new Date(e.at).toLocaleDateString()} · {e.format}
-            </p>
-          </li>
+            {entry.thumbDataUrl ? (
+              <img
+                src={entry.thumbDataUrl}
+                alt=""
+                width={120}
+                height={150}
+                className="aspect-[4/5] w-full object-cover"
+              />
+            ) : (
+              <div className="flex aspect-[4/5] items-center justify-center text-[10px] text-zinc-600">
+                {entry.format}
+              </div>
+            )}
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }

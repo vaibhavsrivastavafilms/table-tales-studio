@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useEffect, useState } from "react";
+import { memo, useMemo, useState } from "react";
+import { useIsClient } from "@/lib/clientHooks";
 import {
   DEFAULT_EXPORT_PRESETS,
   loadActiveExportPreset,
@@ -24,17 +25,31 @@ function ExportStudioSection({
   onPresetChange,
   refreshKey = 0,
 }: ExportStudioSectionProps) {
-  const [preset, setPreset] = useState<ExportPreset>(() => loadActiveExportPreset());
-  const [history, setHistory] = useState<ExportHistoryEntry[]>([]);
+  const isClient = useIsClient();
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    setHistory(loadExportHistory());
-  }, [refreshKey]);
+  const loadedPreset = useMemo(() => {
+    if (!isClient) return DEFAULT_EXPORT_PRESETS[0];
+    void refreshKey;
+    return loadActiveExportPreset();
+  }, [isClient, refreshKey]);
+
+  const preset =
+    selectedPresetId != null
+      ? (DEFAULT_EXPORT_PRESETS.find((p) => p.id === selectedPresetId) ??
+        loadedPreset)
+      : loadedPreset;
+
+  const history = useMemo((): ExportHistoryEntry[] => {
+    if (!isClient) return [];
+    void refreshKey;
+    return loadExportHistory();
+  }, [isClient, refreshKey]);
 
   const selectPreset = (id: string) => {
     const next = saveActiveExportPreset(id);
-    setPreset(next);
+    setSelectedPresetId(id);
     onFormatChange(next.format);
     onPresetChange?.(next);
   };
