@@ -3,6 +3,7 @@
 import { memo, useCallback, useState, type MutableRefObject } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
 import {
+  countExportableSlides,
   exportAllSlides,
   exportSingleSlide,
   type ExportFormat,
@@ -55,8 +56,14 @@ function ExportPanel({
   }, []);
 
   const handleExportAll = async () => {
+    const total = countExportableSlides(slideRefs.current);
+    if (total === 0) {
+      onToast("Open preview slides before exporting", "error");
+      return;
+    }
+
     setExportingAll(true);
-    setProgress({ current: 0, total: SLIDE_KEYS.length });
+    setProgress({ current: 0, total });
     try {
       await exportAllSlides(slideRefs.current, {
         format,
@@ -67,8 +74,15 @@ function ExportPanel({
           ? "PNG carousel exported — table-tales-carousel-png.zip"
           : "Carousel exported — table-tales-carousel.zip"
       );
-    } catch {
-      onToast("Export failed. Try again after images load.", "error");
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : "Export failed";
+      onToast(
+        msg.includes("timed out")
+          ? "Export timed out — retry with fewer images"
+          : "Export failed. Wait for images to load, then retry.",
+        "error"
+      );
     } finally {
       setExportingAll(false);
       setProgress(null);
@@ -76,6 +90,11 @@ function ExportPanel({
   };
 
   const handleExportSingle = async (index: number) => {
+    if (!slideRefs.current[index]) {
+      onToast(`Slide ${index + 1} is not ready`, "error");
+      return;
+    }
+
     setExportingIndex(index);
     setProgress({ current: 0, total: 1 });
     try {
@@ -84,8 +103,15 @@ function ExportPanel({
         onProgress: handleProgress,
       });
       onToast(`Slide ${index + 1} saved as ${format === "png" ? "PNG" : "JPG"}`);
-    } catch {
-      onToast(`Could not export slide ${index + 1}`, "error");
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : "Export failed";
+      onToast(
+        msg.includes("timed out")
+          ? `Slide ${index + 1} export timed out — retry`
+          : `Could not export slide ${index + 1}`,
+        "error"
+      );
     } finally {
       setExportingIndex(null);
       setProgress(null);
@@ -104,7 +130,7 @@ function ExportPanel({
   );
 
   return (
-    <section className="relative rounded-[28px] bg-[#0b0f1a] p-4 ring-1 ring-white/5 md:rounded-[40px] md:p-6">
+    <section className="relative min-w-0 rounded-[28px] bg-[#0b0f1a] p-4 ring-1 ring-white/5 md:rounded-[40px] md:p-6">
       <header className="mb-4 md:mb-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f7c600]">
           Export

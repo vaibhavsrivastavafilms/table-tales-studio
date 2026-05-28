@@ -1,11 +1,13 @@
 import { toJpeg, toPng } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
+import { isBrowser } from "@/lib/browser";
 
 export const EXPORT_WIDTH = 1080;
 export const EXPORT_HEIGHT = 1350;
 export const EXPORT_PIXEL_RATIO = 2;
 export const EXPORT_JPEG_QUALITY = 0.94;
+export const EXPORT_TIMEOUT_MS = 30_000;
 
 export type ExportFormat = "jpeg" | "png";
 
@@ -18,6 +20,8 @@ export type ExportOptions = {
   format?: ExportFormat;
   onProgress?: (progress: ExportProgress) => void;
 };
+
+const pendingDataUrls: string[] = [];
 
 function buildCaptureOptions(format: ExportFormat) {
   const base = {
@@ -38,38 +42,69 @@ function buildCaptureOptions(format: ExportFormat) {
   return { ...base, quality: EXPORT_JPEG_QUALITY };
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => {
+      setTimeout(() => reject(new Error("Export timed out")), ms);
+    }),
+  ]);
+}
+
 async function waitForImages(element: HTMLElement): Promise<void> {
   const imgs = Array.from(element.querySelectorAll("img"));
+
   await Promise.all(
-    imgs.map(
-      (img) =>
-        new Promise<void>((resolve) => {
-          if (img.complete) {
-            resolve();
-            return;
-          }
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-        })
-    )
+    imgs.map(async (img) => {
+      if (img.complete && img.naturalWidth > 0) return;
+
+      await new Promise<void>((resolve) => {
+        const done = () => resolve();
+        img.onload = done;
+        img.onerror = done;
+        if (img.complete) done();
+      });
+    })
   );
 }
 
-export async function captureSlide(
+async function safeCapture(
   element: HTMLElement,
-  format: ExportFormat = "jpeg"
+  format: ExportFormat
 ): Promise<string> {
   await waitForImages(element);
   const options = buildCaptureOptions(format);
 
-  if (format === "png") {
-    return toPng(element, options);
-  }
+  const runCapture = () =>
+    format === "png" ? toPng(element, options) : toJpeg(element, options);
 
-  return toJpeg(element, options);
+  try {
+    return await withTimeout(runCapture(), EXPORT_TIMEOUT_MS);
+  } catch (error) {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    try {
+      return await withTimeout(runCapture(), EXPORT_TIMEOUT_MS);
+    } catch (retryError) {
+      const message =
+        retryError instanceof Error ? retryError.message : "Capture failed";
+      throw new Error(message);
+    }
+  }
+}
+
+function trackDataUrl(dataUrl: string): string {
+  pendingDataUrls.push(dataUrl);
+  return dataUrl;
+}
+
+export function cleanupExportMemory(): void {
+  pendingDataUrls.length = 0;
 }
 
 function downloadDataUrl(dataUrl: string, filename: string): void {
+  if (!isBrowser() || typeof document === "undefined") return;
+
   const link = document.createElement("a");
   link.download = filename;
   link.href = dataUrl;
@@ -85,6 +120,20 @@ function slideFilename(index: number, format: ExportFormat): string {
   return format === "png" ? `slide-${index}.png` : `slide-${index}.jpg`;
 }
 
+export function countExportableSlides(
+  elements: (HTMLElement | null)[]
+): number {
+  return elements.filter(Boolean).length;
+}
+
+export async function captureSlide(
+  element: HTMLElement,
+  format: ExportFormat = "jpeg"
+): Promise<string> {
+  const dataUrl = await safeCapture(element, format);
+  return trackDataUrl(dataUrl);
+}
+
 export async function exportSingleSlide(
   element: HTMLElement | null,
   slideIndex: number,
@@ -95,9 +144,14 @@ export async function exportSingleSlide(
   }
 
   const format = options.format ?? "jpeg";
-  const dataUrl = await captureSlide(element, format);
-  options.onProgress?.({ current: 1, total: 1 });
-  downloadDataUrl(dataUrl, slideFilename(slideIndex, format));
+
+  try {
+    const dataUrl = await captureSlide(element, format);
+    options.onProgress?.({ current: 1, total: 1 });
+    downloadDataUrl(dataUrl, slideFilename(slideIndex, format));
+  } finally {
+    cleanupExportMemory();
+  }
 }
 
 export async function exportAllSlides(
@@ -106,38 +160,43 @@ export async function exportAllSlides(
 ): Promise<void> {
   const format = options.format ?? "jpeg";
   const zip = new JSZip();
-  const validIndices = elements
-    .map((el, i) => (el ? i : -1))
-    .filter((i) => i >= 0);
-  const total = validIndices.length;
+  const total = countExportableSlides(elements);
+
+  if (total === 0) {
+    throw new Error("No slides are ready for export.");
+  }
 
   let current = 0;
 
-  for (let i = 0; i < elements.length; i++) {
-    const element = elements[i];
-    if (!element) continue;
+  try {
+    for (let i = 0; i < elements.length; i++) {
+      const element = elements[i];
+      if (!element) continue;
 
-    const dataUrl = await captureSlide(element, format);
-    zip.file(
-      slideFilename(i + 1, format),
-      dataUrlToBase64(dataUrl),
-      { base64: true }
-    );
+      const dataUrl = await captureSlide(element, format);
+      zip.file(
+        slideFilename(i + 1, format),
+        dataUrlToBase64(dataUrl),
+        { base64: true }
+      );
 
-    current += 1;
-    options.onProgress?.({ current, total });
+      current += 1;
+      options.onProgress?.({ current, total });
+    }
+
+    const blob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+
+    const zipName =
+      format === "png"
+        ? "table-tales-carousel-png.zip"
+        : "table-tales-carousel.zip";
+
+    saveAs(blob, zipName);
+  } finally {
+    cleanupExportMemory();
   }
-
-  const blob = await zip.generateAsync({
-    type: "blob",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
-
-  const zipName =
-    format === "png"
-      ? "table-tales-carousel-png.zip"
-      : "table-tales-carousel.zip";
-
-  saveAs(blob, zipName);
 }

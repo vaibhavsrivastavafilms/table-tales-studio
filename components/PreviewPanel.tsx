@@ -31,7 +31,7 @@ function PreviewPanel({
   );
 
   return (
-    <section className="preview-glow flex min-w-0 flex-col overflow-hidden rounded-[28px] bg-[#0b0f1a] p-4 ring-1 ring-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-[40px] md:p-6">
+    <section className="preview-glow flex min-w-0 flex-col overflow-hidden rounded-[28px] bg-[#0b0f1a] p-4 ring-1 ring-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-[40px] md:p-6 xl:min-w-0">
       <header className="mb-4 shrink-0 md:mb-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f7c600]">
           Stitched Preview

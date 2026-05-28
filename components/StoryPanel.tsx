@@ -26,7 +26,7 @@ function StoryPanel({
   const hasContent = SLIDE_KEYS.some((key) => captions[key].trim().length > 0);
 
   return (
-    <section className="panel-scroll max-h-none overflow-y-auto rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 md:max-h-[520px] md:rounded-[40px] md:p-8">
+    <section className="panel-scroll max-h-none min-w-0 overflow-y-auto overscroll-contain rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 md:max-h-[520px] md:rounded-[40px] md:p-8">
       <h2 className="mb-6 text-2xl font-bold md:mb-8 md:text-4xl">
         AI Story
         <br />

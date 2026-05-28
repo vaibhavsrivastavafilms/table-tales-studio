@@ -19,6 +19,11 @@
   }
 }
 
+html,
+body {
+  overflow-x: hidden;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -28,6 +33,9 @@ body {
 .carousel-scroll {
   scrollbar-width: thin;
   scrollbar-color: #f7c600 #1a1f2e;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
 }
 
 .carousel-scroll::-webkit-scrollbar {

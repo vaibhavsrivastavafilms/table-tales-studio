@@ -24,7 +24,7 @@ function UploadPanel({
   isUploading,
 }: UploadPanelProps) {
   return (
-    <section className="rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 transition-shadow duration-300 hover:shadow-[0_0_48px_rgba(0,0,0,0.2)] md:rounded-[40px] md:p-8">
+    <section className="min-w-0 rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 transition-shadow duration-300 hover:shadow-[0_0_48px_rgba(0,0,0,0.2)] md:rounded-[40px] md:p-8">
       <h2 className="mb-6 text-3xl font-bold leading-tight md:mb-8 md:text-5xl">
         Upload
         <br />
