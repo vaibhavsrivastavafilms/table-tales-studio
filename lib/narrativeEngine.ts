@@ -1,4 +1,5 @@
 import type { CreatorMemory } from "@/lib/creatorMemory";
+import { intensityToViralMode } from "@/lib/directorLearning";
 import type { DirectorProfile } from "@/lib/directorProfile";
 import { describeDish, enhanceFoodCaption } from "@/lib/foodLanguage";
 import type { PlatformModeId } from "@/lib/platformModes";
@@ -16,8 +17,9 @@ import { getTemplateConfig } from "@/lib/templates";
 import type { StyleReference } from "@/lib/styleReference";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 import { generateRichRelationshipNarrative } from "@/lib/richRelationshipNarrative";
-import { isRichRelationshipTemplate } from "@/lib/templates";
-import { enhanceHookLocally, type ViralHookMode } from "@/lib/viralHooks";
+import { generateDoodleStoryNarrative } from "@/lib/doodleStoryNarrative";
+import { isDoodleStoryTemplate, isRichRelationshipTemplate } from "@/lib/templates";
+import { enhanceHookLocally } from "@/lib/viralHooks";
 
 export type GeneratedNarrative = {
   hook: string;
@@ -25,12 +27,6 @@ export type GeneratedNarrative = {
   cta: string;
   captions: Captions;
 };
-
-function profileToViralMode(intensity: DirectorProfile["hookIntensity"]): ViralHookMode {
-  if (intensity === "viral") return "viral";
-  if (intensity === "soft") return "emotional";
-  return "viral";
-}
 
 function buildHook(
   analysis: VisualAnalysis,
@@ -59,7 +55,7 @@ function buildHook(
   };
 
   const base = viralSeed?.trim() || viralHooks[profile.hookIntensity];
-  return enhanceHookLocally(base, profileToViralMode(profile.hookIntensity));
+  return enhanceHookLocally(base, intensityToViralMode(profile.hookIntensity));
 }
 
 export function generateSlideFlow(
@@ -139,6 +135,20 @@ export function generateNarrative(input: {
   const { analysis, memory, templateId, brandCta, hookPattern, profile, styleReference } =
     input;
 
+  if (isDoodleStoryTemplate(templateId)) {
+    const doodle = generateDoodleStoryNarrative({ analysis, brandCta });
+    if (hookPattern?.trim()) {
+      doodle.captions.hook = hookPattern.trim();
+      doodle.hook = hookPattern.trim();
+    }
+    return {
+      hook: doodle.hook,
+      slides: doodle.slides,
+      cta: doodle.cta,
+      captions: doodle.captions,
+    };
+  }
+
   if (isRichRelationshipTemplate(templateId)) {
     const rich = generateRichRelationshipNarrative({
       analysis,
@@ -159,7 +169,7 @@ export function generateNarrative(input: {
   const hook = hookPattern?.trim()
     ? enhanceHookLocally(
         hookPattern,
-        profileToViralMode(profile.hookIntensity)
+        intensityToViralMode(profile.hookIntensity)
       )
     : generateHook(analysis, templateId, profile);
 
@@ -181,7 +191,12 @@ export function generateNarrative(input: {
   if (styleReference?.captionDensity === "minimal") flowDensity = "minimal";
   else if (styleReference?.captionDensity === "dense") flowDensity = "dense";
 
-  captions = injectRetentionHooks(captions, pattern, flowDensity);
+  captions = injectRetentionHooks(
+    captions,
+    pattern,
+    flowDensity,
+    profile.hookIntensity
+  );
   captions = optimizeCarouselFlow(captions, flowDensity);
 
   return {

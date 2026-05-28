@@ -1,3 +1,4 @@
+import { DOODLE_CAFE_ACCENT, isPinterestDoodleReference } from "@/lib/doodleCafeLock";
 import type { TemplateVisualTreatment } from "@/lib/templates";
 
 export type StyleReference = {
@@ -152,11 +153,42 @@ export function blendStyleWithTemplate(
     !!reference.textPlacement.floatingCards ||
     reference.stickerStyle.includes("sticker") ||
     reference.stickerStyle.includes("comic") ||
-    reference.editorialFeel.includes("editorial");
+    reference.stickerStyle.includes("doodle") ||
+    reference.editorialFeel.includes("editorial") ||
+    reference.typographyStyle.toLowerCase().includes("hand");
+
+  const pinterestDoodle = isPinterestDoodleReference(
+    reference.aesthetic,
+    reference.editorialFeel,
+    reference.stickerStyle
+  );
+
+  if (forceEditorial) {
+    visual.overlayIntensity = clamp(
+      visual.overlayIntensity ?? templateVisual.overlayIntensity,
+      0.1,
+      0.28
+    );
+    visual.captionDensity =
+      reference.captionDensity === "dense"
+        ? "balanced"
+        : visual.captionDensity;
+    if (reference.typographyStyle.toLowerCase().includes("hand")) {
+      visual.motionFeel = "editorial";
+    }
+    if (pinterestDoodle) {
+      visual.imageSaturation = clamp((visual.imageSaturation ?? 1.08) + 0.02, 1.02, 1.14);
+      visual.grainOpacity = clamp((visual.grainOpacity ?? 0.02) + 0.01, 0.01, 0.05);
+    }
+  }
+
+  const resolvedAccent = pinterestDoodle
+    ? DOODLE_CAFE_ACCENT
+    : pickAccent(accentColor, templateAccent);
 
   return {
     visual: { ...templateVisual, ...visual },
-    accentColor: pickAccent(accentColor, templateAccent),
+    accentColor: resolvedAccent,
     captionAlignment,
     bottomFadeOpacity: clamp(
       templateBottomFade +

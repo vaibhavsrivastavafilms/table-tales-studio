@@ -45,6 +45,13 @@ export const MARKETPLACE_TEMPLATES: PremiumTemplateMeta[] = [
     premium: false,
   },
   {
+    id: "doodle-story",
+    name: "Doodle Café Stories",
+    tagline: "Locked core · warm Pinterest doodles on real café photos",
+    previewAccent: "#f4c430",
+    premium: false,
+  },
+  {
     id: "neon-night-market",
     name: "Neon Night Market",
     tagline: "Vibrant street neon · late-night energy",
@@ -79,7 +86,8 @@ export function resolveTemplateForExport(
     templateId === "cinematic-dark" ||
     templateId === "founder-story" ||
     templateId === "luxury-dining" ||
-    templateId === "rich-relationship"
+    templateId === "rich-relationship" ||
+    templateId === "doodle-story"
   ) {
     return templateId;
   }

@@ -44,6 +44,8 @@ import { scheduleIdleCleanup } from "@/lib/idleCleanup";
 import { shouldShowToast } from "@/lib/toastCoordinator";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { StyleReference } from "@/lib/styleReference";
+import type { StyleVisionResult } from "@/lib/styleVision";
+import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
 import type { TemplateId } from "@/lib/templates";
 import { parseExportFormat } from "@/lib/validation";
 
@@ -59,6 +61,8 @@ type ExportPanelProps = {
   cloudSynced?: boolean;
   storyMood?: string;
   styleReference?: StyleReference | null;
+  styleVision?: StyleVisionResult | null;
+  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
 };
 
 function ExportPanel({
@@ -73,6 +77,8 @@ function ExportPanel({
   cloudSynced = false,
   storyMood,
   styleReference,
+  styleVision,
+  getAiDesign,
 }: ExportPanelProps) {
   const [format, setFormat] = useState<ExportFormat>("jpeg");
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -428,6 +434,8 @@ function ExportPanel({
                     watermarkText={watermark}
                     storyMood={storyMood}
                     styleReference={styleReference}
+                    styleVision={styleVision}
+                    aiDesign={getAiDesign?.(i + 1) ?? null}
                   />
                 </div>
               </div>

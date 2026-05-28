@@ -1,33 +1,25 @@
 "use client";
 
 import { memo, useMemo, useState } from "react";
-import {
-  formatCreativeDirection,
-  generateCreativeDirection,
-} from "@/lib/directorMode";
-import type { NichePreference } from "@/lib/creatorMemory";
-import type { TemplateId } from "@/lib/templates";
-import type { ViralHookMode } from "@/lib/viralHooks";
+import type { VisualStoryBrief } from "@/lib/storyDirector";
 
 type CreativeDirectionPanelProps = {
-  templateId: TemplateId;
-  viralMode: ViralHookMode;
-  niche?: NichePreference;
+  brief: VisualStoryBrief | null;
 };
 
-function CreativeDirectionPanel({
-  templateId,
-  viralMode,
-  niche = "general",
-}: CreativeDirectionPanelProps) {
+function CreativeDirectionPanel({ brief }: CreativeDirectionPanelProps) {
   const [open, setOpen] = useState(false);
-  const lines = useMemo(
-    () =>
-      formatCreativeDirection(
-        generateCreativeDirection(templateId, viralMode, niche)
-      ),
-    [templateId, viralMode, niche]
-  );
+  const lines = useMemo(() => {
+    if (!brief) return [];
+    const out: string[] = [];
+    if (brief.hookStrategy) out.push(`Strategy: ${brief.hookStrategy}`);
+    if (brief.viewerPsychology) out.push(`Psychology: ${brief.viewerPsychology}`);
+    if (brief.storyArc) out.push(`Arc: ${brief.storyArc}`);
+    if (brief.reason) out.push(`Why: ${brief.reason}`);
+    return out;
+  }, [brief]);
+
+  if (!lines.length) return null;
 
   if (!open) {
     return (

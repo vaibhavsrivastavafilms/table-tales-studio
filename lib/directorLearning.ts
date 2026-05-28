@@ -36,6 +36,7 @@ function templateToTone(templateId: TemplateId): StorytellingTone {
     case "founder-story":
       return "emotional";
     case "rich-relationship":
+    case "doodle-story":
       return "emotional";
     default:
       return "cinematic";
@@ -46,6 +47,20 @@ function viralToIntensity(mode: ViralHookMode): HookIntensity {
   if (mode === "viral" || mode === "funny") return "viral";
   if (mode === "emotional" || mode === "aesthetic") return "soft";
   return "balanced";
+}
+
+/** Inverse of viralToIntensity for hook enhancement — balanced avoids viral prefixes. */
+export function intensityToViralMode(intensity: HookIntensity): ViralHookMode {
+  switch (intensity) {
+    case "viral":
+      return "viral";
+    case "soft":
+      return "emotional";
+    case "balanced":
+      return "aesthetic";
+    default:
+      return "aesthetic";
+  }
 }
 
 function averageCaptionLength(captions: Captions): number {

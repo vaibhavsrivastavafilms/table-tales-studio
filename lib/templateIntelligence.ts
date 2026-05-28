@@ -1,3 +1,8 @@
+import {
+  isPinterestDoodleReference,
+  prefersDoodleCafeTemplate,
+  scoreCafeComfort,
+} from "@/lib/doodleCafeLock";
 import type { StyleReference } from "@/lib/styleReference";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 import type { TemplateId } from "@/lib/templates";
@@ -66,6 +71,25 @@ const RULES: {
         ? "Warm photography suits emotional editorial sticker storytelling"
         : "Playful comfort-food mood fits relationship-style captions",
   },
+  {
+    template: "doodle-story",
+    displayName: "Doodle Café Stories",
+    score: (v) => {
+      const cafe = v.cafeComfortScore ?? scoreCafeComfort(v);
+      return (
+        cafe * 0.72 +
+        v.warmth * 0.22 +
+        (v.brightness > 0.4 && v.brightness < 0.76 ? 0.12 : 0.04)
+      );
+    },
+    reason: (v) => {
+      const cafe = v.cafeComfortScore ?? scoreCafeComfort(v);
+      if (prefersDoodleCafeTemplate(v) || cafe > 0.62) {
+        return "Warm café comfort — locked Pinterest doodle editorial carousel";
+      }
+      return "Cozy cinematic frames suit hand-drawn café storytelling overlays";
+    },
+  },
 ];
 
 export function suggestTemplate(analysis: VisualAnalysis): TemplateSuggestion {
@@ -119,6 +143,22 @@ function styleTemplateBoost(
   if (
     template === "rich-relationship" &&
     (style.textPlacement.floatingCards || style.stickerStyle.includes("comic"))
+  ) {
+    return 0.16;
+  }
+  if (
+    template === "doodle-story" &&
+    isPinterestDoodleReference(
+      style.aesthetic,
+      style.editorialFeel,
+      style.stickerStyle
+    )
+  ) {
+    return 0.22;
+  }
+  if (
+    template === "doodle-story" &&
+    (style.aesthetic.includes("editorial") || style.aesthetic.includes("café"))
   ) {
     return 0.16;
   }

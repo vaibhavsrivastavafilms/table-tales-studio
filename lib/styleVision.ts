@@ -1,8 +1,25 @@
 import { isBrowser } from "@/lib/browser";
 import {
   DEFAULT_STYLE_REFERENCE,
+  summarizeStyleReference,
   type StyleReference,
 } from "@/lib/styleReference";
+
+export type StyleDnaBreakdown = {
+  spacing: string;
+  stickers: string;
+  typography: string;
+  hierarchy: string;
+  contrast: string;
+  density: string;
+};
+
+export type StyleVisionResult = {
+  reference: StyleReference;
+  confidence: number;
+  inspiredBySummary: string;
+  styleDna: StyleDnaBreakdown;
+};
 
 type ColorSample = { r: number; g: number; b: number };
 type RegionStats = {
@@ -159,6 +176,7 @@ export async function analyzeReferenceStyle(
   let shadowStyle = "soft lift";
   let captionDensity: StyleReference["captionDensity"] = "balanced";
   let borderRadius = 16;
+  let pinterestDoodleLayout = false;
 
   if (luxury > 0.55 && brightness < 0.55) {
     aesthetic = "luxury dining carousel";
@@ -181,15 +199,20 @@ export async function analyzeReferenceStyle(
     overlayStyle = "high-contrast documentary";
     shadowStyle = "medium drop";
     borderRadius = 20;
-  } else if (warmth > 0.62 && floatingCards) {
-    aesthetic = "warm editorial relationship carousel";
-    emotionalTone = "cozy emotional";
-    editorialFeel = "comic editorial stickers";
-    typographyStyle = "playful hand-drawn rhythm";
-    stickerStyle = "comic burst stickers";
-    compositionStyle = "asymmetric floating cards";
+  } else if (
+    (warmth > 0.55 && floatingCards) ||
+    (warmth > 0.58 && highStickerEnergy && brightness > 0.42 && brightness < 0.78)
+  ) {
+    aesthetic = "Pinterest warm editorial doodle café";
+    emotionalTone = "cozy-editorial";
+    editorialFeel = "Pinterest doodle storytelling";
+    typographyStyle = "bold condensed uppercase with handwritten script";
+    stickerStyle = "doodle hand-drawn editorial";
+    compositionStyle = "floating editorial asymmetry";
     captionDensity = "balanced";
-    borderRadius = 22;
+    borderRadius = 28;
+    overlayStyle = "warm espresso vignette";
+    pinterestDoodleLayout = true;
   } else if (brightness < 0.38) {
     aesthetic = "cinematic dark food story";
     emotionalTone = "poetic cinematic";
@@ -201,18 +224,20 @@ export async function analyzeReferenceStyle(
   }
 
   const textPlacement: StyleReference["textPlacement"] = {
-    top: textHeavyTop && !textHeavyBottom,
-    bottom: textHeavyBottom || (!textHeavyTop && brightness > 0.4),
-    centered: !textHeavyTop && !floatingCards,
-    floatingCards,
+    top: pinterestDoodleLayout || (textHeavyTop && !textHeavyBottom),
+    bottom:
+      !pinterestDoodleLayout &&
+      (textHeavyBottom || (!textHeavyTop && brightness > 0.4)),
+    centered: !pinterestDoodleLayout && !textHeavyTop && !floatingCards,
+    floatingCards: pinterestDoodleLayout || floatingCards,
   };
 
-  if (floatingCards) {
+  if (floatingCards && !pinterestDoodleLayout) {
     compositionStyle = "asymmetric floating cards";
     typographyStyle = "playful layered hierarchy";
   }
 
-  return {
+  const reference: StyleReference = {
     aesthetic,
     typographyStyle,
     stickerStyle,
@@ -226,11 +251,99 @@ export async function analyzeReferenceStyle(
     emotionalTone,
     editorialFeel,
   };
+
+  return reference;
+}
+
+/** Full analysis with confidence + style DNA (preferred for director pipeline). */
+export async function analyzeReferenceStyleRich(
+  imageUrl: string
+): Promise<StyleVisionResult> {
+  if (!isBrowser()) {
+    return wrapStyleVisionResult({ ...DEFAULT_STYLE_REFERENCE }, { sampled: false });
+  }
+
+  const sampled = await sampleImageUrl(imageUrl);
+  if (!sampled) {
+    return wrapStyleVisionResult({ ...DEFAULT_STYLE_REFERENCE }, { sampled: false });
+  }
+
+  const reference = await analyzeReferenceStyle(imageUrl);
+  const brightness =
+    (sampled.global.r + sampled.global.g + sampled.global.b) / (255 * 3);
+  return wrapStyleVisionResult(reference, {
+    variance: sampled.variance,
+    brightness,
+    sampled: true,
+  });
+}
+
+function buildStyleDna(
+  ref: StyleReference,
+  variance: number,
+  brightness: number
+): StyleDnaBreakdown {
+  return {
+    spacing: ref.compositionStyle,
+    stickers: ref.stickerStyle,
+    typography: ref.typographyStyle,
+    hierarchy: ref.textPlacement.floatingCards
+      ? "Layered editorial cards"
+      : ref.textPlacement.top
+        ? "Top-weighted headline band"
+        : "Bottom cinematic caption band",
+    contrast:
+      brightness < 0.4
+        ? "High contrast, moody falloff"
+        : brightness > 0.65
+          ? "Bright documentary separation"
+          : "Balanced food-forward contrast",
+    density:
+      variance > 0.26
+        ? "Dense sticker energy"
+        : ref.captionDensity === "minimal"
+          ? "Airy minimal frames"
+          : "Balanced editorial density",
+  };
+}
+
+function scoreConfidence(
+  sampled: boolean,
+  variance: number,
+  ref: StyleReference
+): number {
+  if (!sampled) return 0.55;
+  let score = 0.68 + Math.min(0.22, variance * 0.6);
+  if (ref.colorPalette.length >= 3) score += 0.06;
+  if (ref.textPlacement.floatingCards || ref.textPlacement.bottom) score += 0.04;
+  return Math.min(0.96, Math.round(score * 100) / 100);
+}
+
+export function wrapStyleVisionResult(
+  reference: StyleReference,
+  meta?: { variance?: number; brightness?: number; sampled?: boolean }
+): StyleVisionResult {
+  const variance = meta?.variance ?? 0.2;
+  const brightness = meta?.brightness ?? 0.5;
+  const confidence = scoreConfidence(meta?.sampled !== false, variance, reference);
+  return {
+    reference,
+    confidence,
+    inspiredBySummary: `Inspired by ${reference.aesthetic} — ${summarizeStyleReference(reference)}`,
+    styleDna: buildStyleDna(reference, variance, brightness),
+  };
+}
+
+export async function analyzeReferenceStyleDetailed(
+  imageUrl: string
+): Promise<StyleVisionResult> {
+  const reference = await analyzeReferenceStyle(imageUrl);
+  return wrapStyleVisionResult(reference, { sampled: isBrowser() });
 }
 
 /** Vision API hook — swap implementation when OPENAI vision is enabled. */
 export async function analyzeReferenceStyleWithVision(
   imageUrl: string
-): Promise<StyleReference> {
-  return analyzeReferenceStyle(imageUrl);
+): Promise<StyleVisionResult> {
+  return analyzeReferenceStyleDetailed(imageUrl);
 }

@@ -123,5 +123,5 @@ export function generateEditorialLayout(input: {
 }
 
 export function isEditorialTemplate(templateId: string): boolean {
-  return templateId === "rich-relationship";
+  return templateId === "rich-relationship" || templateId === "doodle-story";
 }

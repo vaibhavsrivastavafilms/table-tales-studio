@@ -3,12 +3,34 @@ export type TemplateId =
   | "cinematic-dark"
   | "founder-story"
   | "luxury-dining"
-  | "rich-relationship";
+  | "rich-relationship"
+  | "doodle-story";
 
 export type CaptionAlignment = "left" | "center" | "right";
 export type CaptionDensity = "sparse" | "balanced" | "dense";
 export type BadgeStyle = "bold" | "elegant" | "documentary" | "comic-sticker";
 export type MotionFeel = "punchy" | "slow" | "warm" | "editorial";
+export type TypographyStyleId =
+  | "bold-sans"
+  | "editorial-handwritten"
+  | "elegant-serif"
+  | "documentary";
+export type StickerStyleId = "minimal" | "comic" | "doodle" | "burst";
+export type CompositionStyleId =
+  | "center-band"
+  | "floating-editorial"
+  | "asymmetric";
+
+/** Optional doodle / editorial visual metadata (doodle-story). */
+export type DoodleVisualExtras = {
+  saturationBoost?: number;
+  contrastBoost?: number;
+  typographyStyle?: TypographyStyleId;
+  stickerStyle?: StickerStyleId;
+  borderRadius?: number;
+  emotionalTone?: string;
+  composition?: CompositionStyleId;
+};
 export type TemplateCategory =
   | "Street"
   | "Cinematic"
@@ -25,12 +47,14 @@ export type TemplateVisualTreatment = {
   glowStrength: number;
   badgeStyle: BadgeStyle;
   motionFeel: MotionFeel;
-};
+} & DoodleVisualExtras;
 
 export type TemplateConfig = {
   id: TemplateId;
   name: string;
   category?: TemplateCategory;
+  /** Short marketplace / director description */
+  description?: string;
   badgeText: string;
   accentColor: string;
   overlayGradient: string;
@@ -159,7 +183,43 @@ export const TEMPLATE_LIST: TemplateConfig[] = [
       motionFeel: "editorial",
     },
   },
+  {
+    id: "doodle-story",
+    name: "Doodle Café Stories",
+    category: "Emotional Editorial",
+    description:
+      "AI art-directed café storytelling — real food photos with generated hand-drawn overlay layers",
+    badgeText: "Café",
+    accentColor: "#f4c430",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(26,18,12,0.42) 0%, transparent 32%, transparent 55%, rgba(26,18,12,0.5) 100%)",
+    vignetteIntensity: 0.28,
+    fontScale: 0.92,
+    captionAlignment: "left",
+    bottomFadeOpacity: 0.48,
+    accentLineWidth: 0,
+    visual: {
+      overlayIntensity: 0.18,
+      captionDensity: "balanced",
+      imageContrast: 1.07,
+      imageSaturation: 1.09,
+      saturationBoost: 0.08,
+      contrastBoost: 0.06,
+      grainOpacity: 0.02,
+      glowStrength: 0.04,
+      badgeStyle: "comic-sticker",
+      motionFeel: "editorial",
+      typographyStyle: "editorial-handwritten",
+      stickerStyle: "doodle",
+      borderRadius: 28,
+      emotionalTone: "cozy-editorial",
+      composition: "floating-editorial",
+    },
+  },
 ];
+
+/** Locked Doodle Café Stories photo + overlay tokens */
+export { getLockedPhotoTreatment as getDoodleStoryVisualTreatment } from "@/lib/doodleCafeLock";
 
 const byId = new Map(TEMPLATE_LIST.map((t) => [t.id, t]));
 const byName = new Map(TEMPLATE_LIST.map((t) => [t.name, t]));
@@ -185,4 +245,19 @@ export function isRichRelationshipTemplate(
   templateId: string | undefined
 ): boolean {
   return templateId === "rich-relationship";
+}
+
+export function isDoodleStoryTemplate(
+  templateId: string | undefined
+): boolean {
+  return templateId === "doodle-story";
+}
+
+/** Editorial carousel layouts with sticker/doodle overlays on photography. */
+export function isEditorialCarouselTemplate(
+  templateId: string | undefined
+): boolean {
+  return (
+    templateId === "rich-relationship" || templateId === "doodle-story"
+  );
 }

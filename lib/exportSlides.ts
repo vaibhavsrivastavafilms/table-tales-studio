@@ -5,6 +5,7 @@ import { isBrowser } from "@/lib/browser";
 import { SLIDE_COUNT } from "@/lib/slides";
 import type { ExportFormat } from "@/lib/validation";
 
+/** Captures slide DOM as-is (SVG doodles, editorial type, warm grade) for JPG/PNG/ZIP/2×. */
 export type { ExportFormat } from "@/lib/validation";
 
 export const EXPORT_WIDTH = 1080;

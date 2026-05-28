@@ -33,12 +33,18 @@ function VisualStoryBrief({ brief, loading }: VisualStoryBriefProps) {
       <ul className="mt-1.5 space-y-0.5 text-[11px] text-zinc-400">
         <li>
           <span className="text-zinc-600">Detected · </span>
-          {brief.detectedTemplate}
+          {brief.detectedStyle ?? brief.detectedTemplate}
         </li>
         <li>
           <span className="text-zinc-600">Narrative · </span>
           {brief.narrativeAngle}
         </li>
+        {brief.compositionNote && (
+          <li>
+            <span className="text-zinc-600">Composition · </span>
+            {brief.compositionNote}
+          </li>
+        )}
         <li>
           <span className="text-zinc-600">Mood · </span>
           {brief.mood}
@@ -47,6 +53,18 @@ function VisualStoryBrief({ brief, loading }: VisualStoryBriefProps) {
           <li>
             <span className="text-zinc-600">Reference · </span>
             {brief.referenceStyle}
+          </li>
+        )}
+        {brief.storyArc && (
+          <li>
+            <span className="text-zinc-600">Arc · </span>
+            {brief.storyArc}
+          </li>
+        )}
+        {brief.hookStrategy && (
+          <li>
+            <span className="text-zinc-600">Hook · </span>
+            {brief.hookStrategy}
           </li>
         )}
       </ul>

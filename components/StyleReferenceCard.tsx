@@ -2,10 +2,12 @@
 
 import { memo } from "react";
 import { summarizeStyleReference, type StyleReference } from "@/lib/styleReference";
+import type { StyleVisionResult } from "@/lib/styleVision";
 
 type StyleReferenceCardProps = {
   previewUrl: string | null;
   style: StyleReference | null;
+  vision?: StyleVisionResult | null;
   loading?: boolean;
   onClear?: () => void;
 };
@@ -13,6 +15,7 @@ type StyleReferenceCardProps = {
 function StyleReferenceCard({
   previewUrl,
   style,
+  vision,
   loading,
   onClear,
 }: StyleReferenceCardProps) {
@@ -41,9 +44,17 @@ function StyleReferenceCard({
           {loading ? (
             <p className="mt-1 text-xs text-zinc-500">Reading design language…</p>
           ) : style ? (
-            <p className="mt-1 text-xs leading-relaxed text-zinc-400">
-              {summarizeStyleReference(style)}
-            </p>
+            <>
+              <p className="mt-1 text-xs leading-relaxed text-zinc-400">
+                {vision?.inspiredBySummary ?? summarizeStyleReference(style)}
+              </p>
+              {vision && (
+                <p className="mt-1 text-[10px] text-zinc-600">
+                  Confidence {Math.round(vision.confidence * 100)}% ·{" "}
+                  {vision.styleDna.typography} · {vision.styleDna.density}
+                </p>
+              )}
+            </>
           ) : null}
         </div>
         {onClear && previewUrl && !loading && (

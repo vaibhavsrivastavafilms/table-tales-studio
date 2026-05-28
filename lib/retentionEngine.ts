@@ -1,6 +1,6 @@
 import type { Captions, SlideKey } from "@/lib/slides";
 import { SLIDE_KEYS } from "@/lib/slides";
-import type { DirectorProfile, PacingStyle } from "@/lib/directorProfile";
+import type { DirectorProfile, HookIntensity, PacingStyle } from "@/lib/directorProfile";
 
 export type RetentionPatternId =
   | "curiosity-escalation"
@@ -8,7 +8,10 @@ export type RetentionPatternId =
   | "emotional-build"
   | "authority-proof"
   | "sensory-intrigue"
-  | "pattern-interrupt";
+  | "pattern-interrupt"
+  | "swipe-curiosity"
+  | "save-worthy"
+  | "sensory-cliffhanger";
 
 export type RetentionPattern = {
   id: RetentionPatternId;
@@ -71,6 +74,40 @@ const PATTERNS: RetentionPattern[] = [
       slide2: "Plot twist: it's even better in person.",
     },
   },
+  {
+    id: "swipe-curiosity",
+    label: "Swipe curiosity",
+    hookPrefix: "Wait until slide 4 —",
+    slideModifiers: {
+      slide2: "This changes everything.",
+      slide3: "Nobody talks about this part.",
+      slide4: "The final shot is unreal.",
+    },
+  },
+  {
+    id: "save-worthy",
+    label: "Save-worthy",
+    hookPrefix: "",
+    slideModifiers: {
+      slide2: "Bookmark this before it blows up.",
+      slide4: "You'll want to revisit slide 4.",
+    },
+  },
+  {
+    id: "sensory-cliffhanger",
+    label: "Sensory cliffhanger",
+    hookPrefix: "",
+    slideModifiers: {
+      slide1: "Can you taste it yet?",
+      slide3: "The payoff is in the next swipe.",
+    },
+  },
+];
+
+const SUBTLE_PATTERNS: RetentionPatternId[] = [
+  "emotional-build",
+  "sensory-intrigue",
+  "save-worthy",
 ];
 
 const PACING_MAP: Record<PacingStyle, RetentionPatternId> = {
@@ -81,8 +118,22 @@ const PACING_MAP: Record<PacingStyle, RetentionPatternId> = {
 
 export function getRetentionPattern(
   energy: string = "balanced",
-  pacingStyle?: PacingStyle
+  pacingStyle?: PacingStyle,
+  hookIntensity?: HookIntensity
 ): RetentionPattern {
+  if (hookIntensity === "soft") {
+    const id = SUBTLE_PATTERNS[energy === "high" ? 1 : 0];
+    return PATTERNS.find((p) => p.id === id) ?? PATTERNS[0];
+  }
+
+  if (pacingStyle === "high-retention" || hookIntensity === "viral") {
+    return (
+      PATTERNS.find((p) => p.id === "swipe-curiosity") ??
+      PATTERNS.find((p) => p.id === "curiosity-escalation") ??
+      PATTERNS[0]
+    );
+  }
+
   if (pacingStyle) {
     const id = PACING_MAP[pacingStyle];
     const match = PATTERNS.find((p) => p.id === id);
@@ -94,24 +145,41 @@ export function getRetentionPattern(
   if (energy === "slow") {
     return PATTERNS.find((p) => p.id === "emotional-build") ?? PATTERNS[0];
   }
+  if (hookIntensity === "balanced") {
+    return PATTERNS.find((p) => p.id === "save-worthy") ?? PATTERNS[0];
+  }
   return PATTERNS.find((p) => p.id === "curiosity-escalation") ?? PATTERNS[0];
+}
+
+function isSubtleRetention(hookIntensity?: HookIntensity): boolean {
+  return hookIntensity === "soft" || hookIntensity === "balanced";
 }
 
 export function injectRetentionHooks(
   captions: Captions,
   pattern: RetentionPattern,
-  captionDensity: DirectorProfile["captionDensity"] = "balanced"
+  captionDensity: DirectorProfile["captionDensity"] = "balanced",
+  hookIntensity?: HookIntensity
 ): Captions {
   const next = { ...captions };
+  const subtle = isSubtleRetention(hookIntensity);
+
   if (pattern.hookPrefix && !next.hook.startsWith(pattern.hookPrefix)) {
-    next.hook = `${pattern.hookPrefix} ${next.hook}`.trim();
+    if (!subtle || pattern.hookPrefix.length < 24) {
+      next.hook = `${pattern.hookPrefix} ${next.hook}`.trim();
+    }
   }
+
   for (const key of SLIDE_KEYS) {
     const mod = pattern.slideModifiers[key];
     if (!mod) continue;
     if (captionDensity === "minimal" && mod.length > 28) continue;
-    if (next[key].length < (captionDensity === "dense" ? 90 : 60)) {
-      next[key] = `${mod} ${next[key]}`.trim();
+    if (subtle && mod.length > 42) continue;
+    const maxLen = captionDensity === "dense" ? 90 : subtle ? 72 : 60;
+    if (next[key].length < maxLen && !next[key].includes(mod.slice(0, 12))) {
+      next[key] = subtle
+        ? `${next[key]} ${mod}`.trim()
+        : `${mod} ${next[key]}`.trim();
     }
   }
   return next;

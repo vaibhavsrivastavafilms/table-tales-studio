@@ -1,3 +1,5 @@
+import type { CreatorDirection } from "@/lib/creatorDirection";
+import { DEFAULT_CREATOR_DIRECTION } from "@/lib/creatorDirection";
 import type { ExportFormat } from "@/lib/exportSlides";
 import type { PlatformModeId } from "@/lib/platformModes";
 import type { QuickWorkflowId } from "@/lib/quickWorkflows";
@@ -62,6 +64,7 @@ export type CreatorMemory = {
   lastStyleAesthetic: string | null;
   preferredCompositionStyle: string | null;
   styleReferenceUseCount: number;
+  creatorDirection: CreatorDirection;
 };
 
 const DEFAULT_MEMORY: CreatorMemory = {
@@ -88,6 +91,7 @@ const DEFAULT_MEMORY: CreatorMemory = {
   lastStyleAesthetic: null,
   preferredCompositionStyle: null,
   styleReferenceUseCount: 0,
+  creatorDirection: DEFAULT_CREATOR_DIRECTION,
 };
 
 const listeners = new Set<() => void>();
@@ -109,6 +113,10 @@ function safeParse(raw: string | null): CreatorMemory {
       recentWorkflows: Array.isArray(parsed.recentWorkflows)
         ? parsed.recentWorkflows
         : [],
+      creatorDirection: {
+        ...DEFAULT_CREATOR_DIRECTION,
+        ...(parsed.creatorDirection as Partial<CreatorDirection> | undefined),
+      },
     };
   } catch {
     return {
@@ -147,6 +155,7 @@ function memoryEquals(a: CreatorMemory, b: CreatorMemory): boolean {
     a.lastStyleAesthetic === b.lastStyleAesthetic &&
     a.preferredCompositionStyle === b.preferredCompositionStyle &&
     a.styleReferenceUseCount === b.styleReferenceUseCount &&
+    JSON.stringify(a.creatorDirection) === JSON.stringify(b.creatorDirection) &&
     JSON.stringify(a.recentWorkflows) === JSON.stringify(b.recentWorkflows)
   );
 }
@@ -376,6 +385,16 @@ export function recordExportPreference(format: ExportFormat): void {
 
 export function recordViralMode(mode: ViralHookMode): void {
   saveCreatorMemory({ viralMode: mode });
+}
+
+export function recordCreatorDirection(
+  patch: Partial<CreatorDirection>
+): CreatorMemory {
+  const mem = loadCreatorMemory();
+  return saveCreatorMemory({
+    creatorDirection: { ...mem.creatorDirection, ...patch },
+    platformMode: patch.platform ?? mem.platformMode,
+  });
 }
 
 export function recordStyleReference(style: {

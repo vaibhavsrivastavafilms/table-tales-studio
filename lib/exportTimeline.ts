@@ -1,4 +1,5 @@
 import type { ExportProgress } from "@/lib/exportSlides";
+import { cinematicPipelineLabel } from "@/lib/exportPolish";
 
 export type ExportPipelinePhase =
   | "idle"
@@ -101,22 +102,11 @@ export class ExportTimeline {
   }
 
   private pipelineLabel(): string {
-    switch (this.phase) {
-      case "preflight":
-        return "Validating render pipeline…";
-      case "rendering":
-        return `Rendering slide ${Math.min(this.currentSlot, this.totalSlots)} of ${this.totalSlots}`;
-      case "packaging":
-        return "Packaging carousel archive…";
-      case "complete":
-        return "Render complete";
-      case "cancelled":
-        return "Render cancelled";
-      case "failed":
-        return "Render interrupted";
-      default:
-        return "Render pipeline idle";
-    }
+    return cinematicPipelineLabel(
+      this.phase,
+      this.currentSlot,
+      this.totalSlots
+    );
   }
 
   snapshot(): ExportTimelineSnapshot {

@@ -6,6 +6,8 @@ import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { TemplateId } from "@/lib/templates";
 import type { BrandKit } from "@/lib/brandKit";
 import type { StyleReference } from "@/lib/styleReference";
+import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
+import type { StyleVisionResult } from "@/lib/styleVision";
 import { resolveWatermarkText } from "@/lib/brandKit";
 
 type StoryboardPanelProps = {
@@ -17,7 +19,9 @@ type StoryboardPanelProps = {
   brandKit: BrandKit;
   storyMood?: string;
   styleReference?: StyleReference | null;
+  styleVision?: StyleVisionResult | null;
   showPlanWatermark: boolean;
+  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
 };
 
 function StoryboardPanel({
@@ -29,7 +33,9 @@ function StoryboardPanel({
   brandKit,
   storyMood,
   styleReference,
+  styleVision,
   showPlanWatermark,
+  getAiDesign,
 }: StoryboardPanelProps) {
   const [index, setIndex] = useState(0);
   const slideCount = SLIDE_KEYS.length;
@@ -101,6 +107,8 @@ function StoryboardPanel({
             watermarkText={watermark}
             storyMood={storyMood}
             styleReference={styleReference}
+            styleVision={styleVision}
+            aiDesign={getAiDesign?.(index + 1) ?? null}
           />
         </div>
 

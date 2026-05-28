@@ -6,6 +6,8 @@ import EmptyState from "@/components/EmptyState";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
 import type { StyleReference } from "@/lib/styleReference";
+import type { StyleVisionResult } from "@/lib/styleVision";
+import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
 import type { TemplateId } from "@/lib/templates";
 
 type PreviewPanelProps = {
@@ -17,7 +19,10 @@ type PreviewPanelProps = {
   brandKit?: BrandKit;
   storyMood?: string;
   styleReference?: StyleReference | null;
+  styleVision?: StyleVisionResult | null;
   onOpenStoryboard?: () => void;
+  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
+  studioMode?: boolean;
 };
 
 function PreviewPanel({
@@ -29,7 +34,10 @@ function PreviewPanel({
   brandKit,
   storyMood,
   styleReference,
+  styleVision,
   onOpenStoryboard,
+  getAiDesign,
+  studioMode = false,
 }: PreviewPanelProps) {
   const watermark = resolveWatermarkText(brandKit ?? DEFAULT_BRAND_KIT, showWatermark);
   const slides = useMemo(
@@ -42,6 +50,38 @@ function PreviewPanel({
       })),
     [images, captions]
   );
+
+  if (studioMode) {
+    return (
+      <section className="flex h-full min-w-0 flex-col">
+        <div className="carousel-scroll flex h-full min-h-[280px] gap-4 overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth snap-x snap-mandatory touch-pan-x pb-2 md:min-h-[380px]">
+          {slides.map((slide, i) => (
+            <div
+              key={slide.key}
+              className="shrink-0 snap-center studio-slide-float"
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <CarouselSlide
+                ref={(el) => {
+                  slideRefs.current[i] = el;
+                }}
+                image={slide.image}
+                text={slide.text}
+                index={slide.index}
+                templateId={templateId}
+                brandKit={brandKit}
+                watermarkText={watermark}
+                storyMood={storyMood}
+                styleReference={styleReference}
+                styleVision={styleVision}
+                aiDesign={getAiDesign?.(slide.index) ?? null}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="preview-glow flex min-w-0 flex-col overflow-hidden rounded-[28px] bg-[#0b0f1a] p-4 ring-1 ring-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-[40px] md:p-6 xl:min-w-0">
@@ -94,6 +134,8 @@ function PreviewPanel({
                   watermarkText={watermark}
                   storyMood={storyMood}
                   styleReference={styleReference}
+                  styleVision={styleVision}
+                  aiDesign={getAiDesign?.(slide.index) ?? null}
                 />
               </div>
             ))}

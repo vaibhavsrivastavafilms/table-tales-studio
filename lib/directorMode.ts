@@ -65,6 +65,30 @@ const TEMPLATE_DIRECTION: Record<TemplateId, Partial<CreativeDirection>> = {
     music: ["Soft vinyl crackle, minimal beat"],
     lighting: ["Golden hour warmth, cream highlights, gentle falloff"],
   },
+  "doodle-story": {
+    shots: [
+      "Overhead latte art or pastry hero",
+      "Hands wrapping mug — candid café",
+      "Window-side plate with soft bokeh",
+      "Maggi / noodles comfort bowl — tungsten glow",
+    ],
+    camera: [
+      "Static Pinterest frames — locked floating editorial",
+      "Hand-drawn white doodle layers only",
+    ],
+    mood: [
+      "Doodle Café Stories — cozy cinematic",
+      "Pinterest emotional warmth",
+      "Premium playful editorial",
+    ],
+    pacing: [
+      "Top-left hook → sensory beats → yellow-highlight payoff → save CTA",
+    ],
+    music: ["Acoustic café hum, light brush percussion"],
+    lighting: [
+      "Locked warm tungsten · espresso vignette · photorealistic food",
+    ],
+  },
 };
 
 const MODE_CAMERA: Partial<Record<ViralHookMode, string>> = {

@@ -1,4 +1,5 @@
 import { forwardRef, memo, useMemo } from "react";
+import DoodleStorySlide from "@/components/DoodleStorySlide";
 import RichRelationshipSlide from "@/components/RichRelationshipSlide";
 import {
   fontScaleForPreset,
@@ -9,8 +10,14 @@ import {
   blendStyleWithTemplate,
   type StyleReference,
 } from "@/lib/styleReference";
+import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
+import type { SlideEditorPrefs } from "@/lib/slideEditorPrefs";
+import type { StyleVisionResult } from "@/lib/styleVision";
+import { DOODLE_CAFE_ACCENT } from "@/lib/doodleCafeLock";
 import {
   getTemplateConfig,
+  isDoodleStoryTemplate,
+  isEditorialCarouselTemplate,
   isRichRelationshipTemplate,
   type TemplateId,
 } from "@/lib/templates";
@@ -27,6 +34,9 @@ export type CarouselSlideProps = {
   storyMood?: string;
   /** Optional reference-carousel aesthetic to blend into slides */
   styleReference?: StyleReference | null;
+  styleVision?: StyleVisionResult | null;
+  aiDesign?: AiSlideDesign | null;
+  slidePrefs?: SlideEditorPrefs;
 };
 
 const SLIDE_WIDTH = 320;
@@ -44,11 +54,15 @@ const CarouselSlide = memo(
       watermarkText = null,
       storyMood,
       styleReference,
+      styleVision,
+      aiDesign,
+      slidePrefs,
     },
     ref
   ) {
     const config = getTemplateConfig(templateId ?? "street-food");
-    const isEditorialTemplate = isRichRelationshipTemplate(config.id);
+    const isDoodle = isDoodleStoryTemplate(config.id);
+    const isEditorialTemplate = isEditorialCarouselTemplate(config.id);
 
     const blended = useMemo(
       () =>
@@ -64,11 +78,18 @@ const CarouselSlide = memo(
       [config, styleReference, isEditorialTemplate]
     );
 
-    const visual = { ...config.visual, ...blended.visual };
+    const overlayScale = slidePrefs?.overlayIntensity ?? 1;
+    const visual = {
+      ...config.visual,
+      ...blended.visual,
+      overlayIntensity: config.visual.overlayIntensity * overlayScale,
+    };
     const isEditorial = isEditorialTemplate || blended.useEditorialLayout;
-    const accent = brandKit
-      ? resolveSlideAccent(blended.accentColor ?? config.accentColor, brandKit)
-      : (blended.accentColor ?? config.accentColor);
+    const accent = isDoodle
+      ? DOODLE_CAFE_ACCENT
+      : brandKit
+        ? resolveSlideAccent(blended.accentColor ?? config.accentColor, brandKit)
+        : (blended.accentColor ?? config.accentColor);
     const captionAlignment = blended.captionAlignment;
     const bottomFadeOpacity =
       blended.bottomFadeOpacity ?? config.bottomFadeOpacity;
@@ -104,8 +125,13 @@ const CarouselSlide = memo(
             ? "hover:duration-400"
             : "hover:duration-300";
 
-    const captionBottom = !styleReference?.textPlacement.top;
-    const captionTop = !!styleReference?.textPlacement.top && !captionBottom;
+    const placementTop = slidePrefs?.captionPlacement === "top";
+    const placementBottom = slidePrefs?.captionPlacement === "bottom";
+    const captionBottom =
+      placementBottom || (!placementTop && !styleReference?.textPlacement.top);
+    const captionTop =
+      placementTop ||
+      (!placementBottom && !!styleReference?.textPlacement.top && !captionBottom);
 
     return (
       <article
@@ -114,15 +140,36 @@ const CarouselSlide = memo(
         style={{
           width: SLIDE_WIDTH,
           height: SLIDE_HEIGHT,
-          borderRadius: slideRadius,
+          borderRadius: isDoodle
+            ? (visual.borderRadius ?? slideRadius)
+            : slideRadius,
           ["--slide-accent" as string]: accent,
-          boxShadow: isEditorial
-            ? "0 20px 40px -12px rgba(26,18,8,0.45)"
-            : `${shadowLift}, 0 0 ${Math.round(visual.glowStrength * 48)}px ${accent}22`,
+          boxShadow: isDoodle
+            ? "0 20px 40px -12px rgba(61,41,20,0.38)"
+            : isEditorial
+              ? "0 20px 40px -12px rgba(26,18,8,0.45)"
+              : `${shadowLift}, 0 0 ${Math.round(visual.glowStrength * 48)}px ${accent}22`,
         }}
         aria-label={`Slide ${index}`}
       >
-        {isEditorial ? (
+        {isDoodle ? (
+          <DoodleStorySlide
+            image={image}
+            text={text}
+            index={index}
+            mood={storyMood ?? styleReference?.emotionalTone}
+            accentColor={accent}
+            showWatermark={showWatermark}
+            watermarkText={watermarkText}
+            width={SLIDE_WIDTH}
+            height={SLIDE_HEIGHT}
+            styleReference={styleReference}
+            styleVision={styleVision}
+            visual={visual}
+            aiDesign={aiDesign}
+            slidePrefs={slidePrefs}
+          />
+        ) : isRichRelationshipTemplate(config.id) ? (
           <RichRelationshipSlide
             image={image}
             text={text}

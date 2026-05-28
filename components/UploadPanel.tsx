@@ -5,6 +5,7 @@ import EmptyState from "@/components/EmptyState";
 import StyleReferenceCard from "@/components/StyleReferenceCard";
 import TemplateMarketplace from "@/components/TemplateMarketplace";
 import type { StyleReference } from "@/lib/styleReference";
+import type { StyleVisionResult } from "@/lib/styleVision";
 import { VIRAL_HOOK_MODES, type ViralHookMode } from "@/lib/viralHooks";
 import { TEMPLATE_LIST, type TemplateId } from "@/lib/templates";
 
@@ -19,6 +20,7 @@ type UploadPanelProps = {
   onStyleReferenceClear?: () => void;
   styleReferencePreview?: string | null;
   styleReference?: StyleReference | null;
+  styleVision?: StyleVisionResult | null;
   isAnalyzingStyle?: boolean;
   onGenerate: () => void;
   isGenerating: boolean;
@@ -36,6 +38,7 @@ function UploadPanel({
   onStyleReferenceClear,
   styleReferencePreview = null,
   styleReference = null,
+  styleVision = null,
   isAnalyzingStyle = false,
   onGenerate,
   isGenerating,
@@ -104,6 +107,7 @@ function UploadPanel({
         <StyleReferenceCard
           previewUrl={styleReferencePreview}
           style={styleReference}
+          vision={styleVision}
           loading={isAnalyzingStyle}
           onClear={onStyleReferenceClear}
         />

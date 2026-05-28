@@ -1,9 +1,13 @@
 import type { CreatorMemory } from "@/lib/creatorMemory";
+import type { CreatorDirection } from "@/lib/creatorDirection";
+import { DEFAULT_CREATOR_DIRECTION } from "@/lib/creatorDirection";
+import { buildCreativeDirection } from "@/lib/creativeDirection";
 import {
   getDirectorProfileSnapshot,
   loadDirectorProfile,
   type DirectorProfile,
 } from "@/lib/directorProfile";
+import type { StyleVisionResult } from "@/lib/styleVision";
 import {
   applyGenerationVariation,
   getRecentGenerationPhrases,
@@ -15,6 +19,8 @@ import { applySignatureLanguage } from "@/lib/signatureLanguage";
 import { adaptCaptionsToStyle } from "@/lib/styleCaptions";
 import type { StyleReference } from "@/lib/styleReference";
 import { summarizeStyleReference } from "@/lib/styleReference";
+import { adaptDoodleFromReference } from "@/lib/doodleStyleAdaptation";
+import { isDoodleStoryTemplate } from "@/lib/templates";
 import {
   explainTemplateChoice,
   suggestTemplateWithStyle,
@@ -33,6 +39,12 @@ export type VisualStoryBrief = {
   reason: string;
   directorTone?: string;
   referenceStyle?: string;
+  hookStrategy?: string;
+  viewerPsychology?: string;
+  storyArc?: string;
+  /** Doodle Story — human-readable style detection */
+  detectedStyle?: string;
+  compositionNote?: string;
 };
 
 export type StoryDirectorResult = {
@@ -77,6 +89,23 @@ function templateDisplayName(
   return getTemplateConfig(templateId).name;
 }
 
+function enrichDoodleBrief(
+  brief: VisualStoryBrief,
+  templateId: TemplateId,
+  styleReference?: StyleReference | null,
+  styleVision?: StyleVisionResult | null
+): VisualStoryBrief {
+  if (!isDoodleStoryTemplate(templateId)) return brief;
+  const adapt = adaptDoodleFromReference(styleReference, styleVision);
+  return {
+    ...brief,
+    detectedStyle: adapt.detectedStyleLabel,
+    narrativeAngle: adapt.narrativeLabel,
+    compositionNote: adapt.compositionLabel,
+    mood: adapt.emotionalTone,
+  };
+}
+
 function finalizeCaptions(
   captions: Captions,
   profile: DirectorProfile,
@@ -113,8 +142,10 @@ export async function runVisualStoryPipeline(input: {
   isRegenerate?: boolean;
   previousCaptions?: Captions;
   styleReference?: StyleReference | null;
+  creatorDirection?: CreatorDirection;
+  styleVision?: StyleVisionResult | null;
 }): Promise<StoryDirectorResult> {
-  const profile = input.profile ?? getDirectorProfileSnapshot();
+  const baseProfile = input.profile ?? getDirectorProfileSnapshot();
   const sources = input.imageUrls.map((url, i) => ({
     url,
     name: input.fileNames?.[i],
@@ -131,9 +162,21 @@ export async function runVisualStoryPipeline(input: {
   const templateId = resolveTemplateId(
     suggestion,
     input.memory,
-    profile,
+    baseProfile,
     input.forceTemplateId
   );
+
+  const creative = buildCreativeDirection({
+    analysis,
+    direction: input.creatorDirection ?? DEFAULT_CREATOR_DIRECTION,
+    memory: input.memory,
+    templateId,
+    styleReference: input.styleReference,
+    styleVision: input.styleVision,
+    forceTemplateId: input.forceTemplateId,
+  });
+
+  const profile: DirectorProfile = { ...baseProfile, ...creative.profilePatch };
 
   const generated = generateNarrative({
     analysis,
@@ -151,18 +194,26 @@ export async function runVisualStoryPipeline(input: {
   });
   captions = adaptCaptionsToStyle(captions, input.styleReference);
 
-  const brief: VisualStoryBrief = {
-    detectedTemplate: templateDisplayName(templateId, suggestion),
-    narrativeAngle: narrative.primary,
-    mood: input.styleReference?.emotionalTone ?? analysis.mood ?? "warm cinematic",
-    cuisine: analysis.cuisine,
-    confidence: suggestion.confidence,
-    reason: explainTemplateChoice(analysis, templateId),
-    directorTone: profile.storytellingTone,
-    referenceStyle: input.styleReference
-      ? summarizeStyleReference(input.styleReference)
-      : undefined,
-  };
+  const brief = enrichDoodleBrief(
+    {
+      detectedTemplate: templateDisplayName(templateId, suggestion),
+      narrativeAngle: narrative.primary,
+      mood: input.styleReference?.emotionalTone ?? analysis.mood ?? "warm cinematic",
+      cuisine: analysis.cuisine,
+      confidence: suggestion.confidence,
+      reason: explainTemplateChoice(analysis, templateId),
+      directorTone: profile.storytellingTone,
+      referenceStyle: input.styleReference
+        ? summarizeStyleReference(input.styleReference)
+        : undefined,
+      hookStrategy: creative.hookStrategy,
+      viewerPsychology: creative.viewerPsychology,
+      storyArc: creative.arc.label,
+    },
+    templateId,
+    input.styleReference,
+    input.styleVision
+  );
 
   return {
     analysis,
@@ -185,14 +236,28 @@ export function regeneratePersonalizedStory(input: {
   previousCaptions: Captions;
   profile?: DirectorProfile;
   styleReference?: StyleReference | null;
+  creatorDirection?: CreatorDirection;
+  styleVision?: StyleVisionResult | null;
 }): StoryDirectorResult {
-  const profile = input.profile ?? loadDirectorProfile();
+  const baseProfile = input.profile ?? loadDirectorProfile();
   const narrative = getPrimaryNarrative(input.analysis);
   const suggestion = suggestTemplateWithStyle(
     input.analysis,
     input.styleReference,
     input.templateId
   );
+
+  const creative = buildCreativeDirection({
+    analysis: input.analysis,
+    direction: input.creatorDirection ?? DEFAULT_CREATOR_DIRECTION,
+    memory: input.memory,
+    templateId: input.templateId,
+    styleReference: input.styleReference,
+    styleVision: input.styleVision,
+    forceTemplateId: input.templateId,
+  });
+
+  const profile: DirectorProfile = { ...baseProfile, ...creative.profilePatch };
 
   const generated = generateNarrative({
     analysis: input.analysis,
@@ -210,21 +275,29 @@ export function regeneratePersonalizedStory(input: {
   });
   captions = adaptCaptionsToStyle(captions, input.styleReference);
 
-  const brief: VisualStoryBrief = {
-    detectedTemplate: templateDisplayName(input.templateId, suggestion),
-    narrativeAngle: narrative.primary,
-    mood:
-      input.styleReference?.emotionalTone ??
-      input.analysis.mood ??
-      "warm cinematic",
-    cuisine: input.analysis.cuisine,
-    confidence: suggestion.confidence,
-    reason: explainTemplateChoice(input.analysis, input.templateId),
-    directorTone: profile.storytellingTone,
-    referenceStyle: input.styleReference
-      ? summarizeStyleReference(input.styleReference)
-      : undefined,
-  };
+  const brief = enrichDoodleBrief(
+    {
+      detectedTemplate: templateDisplayName(input.templateId, suggestion),
+      narrativeAngle: narrative.primary,
+      mood:
+        input.styleReference?.emotionalTone ??
+        input.analysis.mood ??
+        "warm cinematic",
+      cuisine: input.analysis.cuisine,
+      confidence: suggestion.confidence,
+      reason: explainTemplateChoice(input.analysis, input.templateId),
+      directorTone: profile.storytellingTone,
+      referenceStyle: input.styleReference
+        ? summarizeStyleReference(input.styleReference)
+        : undefined,
+      hookStrategy: creative.hookStrategy,
+      viewerPsychology: creative.viewerPsychology,
+      storyArc: creative.arc.label,
+    },
+    input.templateId,
+    input.styleReference,
+    input.styleVision
+  );
 
   return {
     analysis: input.analysis,

@@ -1,4 +1,5 @@
 import { isBrowser } from "@/lib/browser";
+import { scoreCafeComfort } from "@/lib/doodleCafeLock";
 
 export type VisualAnalysis = {
   cuisine?: string;
@@ -11,13 +12,15 @@ export type VisualAnalysis = {
   visualTone?: string;
   luxuryScore: number;
   streetFoodScore: number;
+  /** Café / comfort-food fit for Doodle Café Stories (0–1) */
+  cafeComfortScore?: number;
   dominantColors: string[];
   storytellingAngles: string[];
   warmth: number;
   brightness: number;
 };
 
-const DEFAULT_ANALYSIS: VisualAnalysis = {
+export const DEFAULT_ANALYSIS: VisualAnalysis = {
   cuisine: "contemporary",
   dishType: "plated food",
   ambience: "intimate dining",
@@ -89,12 +92,25 @@ function inferFromFilename(name: string): Partial<VisualAnalysis> {
       : "comfort";
     hints.dishType = "hearty plate";
   }
-  if (/coffee|cafe|latte|espresso/.test(lower)) {
+  if (/coffee|cafe|latte|espresso|chai|matcha/.test(lower)) {
     hints.cuisine = "café";
     hints.dishType = "beverage moment";
     hints.ambience = "cozy café";
+    hints.mood = "cozy intimate";
   }
-  if (/dessert|cake|pastry|sweet/.test(lower)) {
+  if (/maggi|noodle|noodles|ramen|soup|comfort/.test(lower)) {
+    hints.cuisine = hints.cuisine ?? "comfort";
+    hints.dishType = "comfort bowl";
+    hints.mood = "cozy intimate";
+  }
+  if (/dessert|pastry|cake|brownie|cookie/.test(lower)) {
+    hints.dishType = hints.dishType ?? "dessert";
+    hints.mood = hints.mood ?? "indulgent cozy";
+  }
+  if (/interior|table|window|cozy/.test(lower)) {
+    hints.ambience = "cozy café interior";
+  }
+  if (/dessert|cake|sweet/.test(lower) && !hints.dishType) {
     hints.dishType = "dessert";
     hints.mood = "indulgent";
   }
@@ -177,6 +193,9 @@ export function inferStorytellingAngles(analysis: VisualAnalysis): string[] {
   if (analysis.warmth > 0.6 && analysis.brightness < 0.5) {
     angles.push("monsoon café mood", "comfort food nostalgia");
   }
+  if ((analysis.cafeComfortScore ?? scoreCafeComfort(analysis)) > 0.58) {
+    angles.push("Pinterest café storytelling", "doodle editorial carousel");
+  }
   if (analysis.energy === "high") angles.push("sensory overload", "late-night cravings");
   if (analysis.brightness < 0.4) angles.push("cinematic dark reveal");
   if (!angles.length) angles.push("founder passion", "sensory detail");
@@ -239,6 +258,14 @@ export async function analyzeImageSet(
       : merged.luxuryScore > 0.55
         ? "slow"
         : "balanced";
+
+  merged.cafeComfortScore = scoreCafeComfort(merged);
+  if (merged.cafeComfortScore > 0.6 && !merged.mood?.includes("cozy")) {
+    merged.mood = "cozy intimate";
+    merged.lighting = merged.lighting?.includes("tungsten")
+      ? merged.lighting
+      : "warm tungsten";
+  }
 
   return merged;
 }
