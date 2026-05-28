@@ -183,6 +183,8 @@ const TEMPLATE_ARC: Partial<Record<TemplateId, StoryArcId>> = {
   "cinematic-dark": "emotional-reveal",
   "founder-story": "pov-storytelling",
   "rich-relationship": "relationship-carousel",
+  "relationship-story": "relationship-carousel",
+  "cozy-monsoon": "comfort-nostalgia",
   "doodle-story": "comfort-nostalgia",
 };
 

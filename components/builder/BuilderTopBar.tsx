@@ -1,56 +1,48 @@
 "use client";
 
 import { memo } from "react";
-import { BUILDER_TEMPLATE_OPTIONS } from "@/lib/builderTemplates";
-import type { TemplateId } from "@/lib/templates";
 
 type BuilderTopBarProps = {
-  templateId: TemplateId;
-  onTemplateChange: (id: TemplateId) => void;
-  onDownload: () => void;
-  downloading?: boolean;
-  disabled?: boolean;
+  pipelineStatus?: "idle" | "loading" | "ready" | "partial" | "fallback";
 };
 
-function BuilderTopBar({
-  templateId,
-  onTemplateChange,
-  onDownload,
-  downloading = false,
-  disabled = false,
-}: BuilderTopBarProps) {
+function BuilderTopBar({ pipelineStatus = "idle" }: BuilderTopBarProps) {
+  const statusText =
+    pipelineStatus === "loading"
+      ? "Composing carousel…"
+      : pipelineStatus === "ready"
+        ? "Art direction applied"
+        : pipelineStatus === "partial"
+          ? "Partial AI overlays"
+          : null;
+
   return (
-    <header className="builder-topbar flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-3 md:px-6">
-      <div className="min-w-0">
-        <p className="text-sm font-bold tracking-tight text-white">
-          Table Tales Studio
-        </p>
-      </div>
-
-      <label className="hidden min-w-0 flex-1 max-w-xs sm:block">
-        <span className="sr-only">Template</span>
-        <select
-          value={templateId}
-          disabled={disabled}
-          onChange={(e) => onTemplateChange(e.target.value as TemplateId)}
-          className="w-full rounded-lg border border-white/10 bg-black/50 px-3 py-2 text-xs font-medium text-white"
+    <header className="builder-topbar flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-2.5 md:px-6">
+      <div className="flex items-center gap-2.5">
+        <span
+          className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#f4c430]/15 text-sm font-bold text-[#f4c430]"
+          aria-hidden
         >
-          {BUILDER_TEMPLATE_OPTIONS.map((t) => (
-            <option key={`${t.id}-${t.label}`} value={t.id}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <button
-        type="button"
-        onClick={onDownload}
-        disabled={disabled || downloading}
-        className="builder-cta shrink-0 rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider text-black disabled:opacity-50"
-      >
-        {downloading ? "Exporting…" : "Export"}
-      </button>
+          ◈
+        </span>
+        <div>
+          <p className="text-sm font-bold tracking-tight text-white">
+            Table Tales Studio
+          </p>
+          <p className="text-[10px] text-zinc-600">
+            AI carousel director
+          </p>
+        </div>
+      </div>
+      {statusText && (
+        <p
+          className={`text-[10px] font-semibold uppercase tracking-wider ${
+            pipelineStatus === "loading" ? "text-[#f4c430]" : "text-zinc-500"
+          }`}
+        >
+          {statusText}
+        </p>
+      )}
     </header>
   );
 }

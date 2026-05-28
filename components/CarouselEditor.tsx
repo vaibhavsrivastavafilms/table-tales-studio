@@ -28,7 +28,7 @@ import {
   suggestAiDesignMode,
   type AiDesignModeId,
 } from "@/lib/aiDesignModes";
-import { useAiDesignPipeline } from "@/lib/useAiDesignPipeline";
+import { useCreativeRenderPipeline } from "@/lib/useCreativeRenderPipeline";
 import {
   DEFAULT_TEMPLATE_ID,
   getTemplateConfig,
@@ -73,6 +73,7 @@ import {
 } from "@/lib/creatorMemory";
 import {
   DEFAULT_CREATOR_DIRECTION,
+  viralModeFromBalance,
   type CreatorDirection,
 } from "@/lib/creatorDirection";
 import { analyzeReferenceStyleRich, type StyleVisionResult } from "@/lib/styleVision";
@@ -98,8 +99,8 @@ import { logMonitoring } from "@/lib/monitoring";
 import BuilderTopBar from "@/components/builder/BuilderTopBar";
 import BuilderInputPanel from "@/components/builder/BuilderInputPanel";
 import BuilderPreview from "@/components/builder/BuilderPreview";
-import BuilderSlideEditor from "@/components/builder/BuilderSlideEditor";
-import BuilderDownload from "@/components/builder/BuilderDownload";
+import BuilderInspector from "@/components/builder/BuilderInspector";
+import BuilderSlideTimeline from "@/components/builder/BuilderSlideTimeline";
 import { DEFAULT_BUILDER_TEMPLATE } from "@/lib/builderTemplates";
 import {
   builderToneToViralMode,
@@ -120,9 +121,9 @@ type CarouselEditorProps = {
 export default function CarouselEditor({
   projectId,
   demoMode = false,
-  variant = "dashboard",
+  variant = "studio",
 }: CarouselEditorProps) {
-  const isStudio = variant === "studio";
+  const isStudio = variant !== "dashboard";
   const [project, setProject] = useState<Project | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [captions, setCaptions] = useState<Captions>(() => createEmptyCaptions());
@@ -184,11 +185,11 @@ export default function CarouselEditor({
   const [slidePrefsMap, setSlidePrefsMap] = useState<
     Record<number, Partial<SlideEditorPrefs>>
   >({});
-  const [exportOpen, setExportOpen] = useState(false);
 
   const isDoodleTemplate = isDoodleStoryTemplate(templateId);
-  const aiPipeline = useAiDesignPipeline({
-    enabled: isDoodleTemplate && images.length > 0,
+  const creativePipeline = useCreativeRenderPipeline({
+    enabled: isStudio && images.length > 0,
+    templateId,
     captions,
     mode: aiDesignMode,
     analysis: lastAnalysis,
@@ -197,9 +198,23 @@ export default function CarouselEditor({
     mood: storyBrief?.mood,
   });
 
-  const getAiDesign = useCallback(
-    (slideIndex: number) => aiPipeline.getDesign(slideIndex),
-    [aiPipeline]
+  const dashboardAiPipeline = useCreativeRenderPipeline({
+    enabled: !isStudio && isDoodleTemplate && images.length > 0,
+    templateId,
+    captions,
+    mode: aiDesignMode,
+    analysis: lastAnalysis,
+    styleReference,
+    styleVision,
+    mood: storyBrief?.mood,
+  });
+
+  const getArtDirection = useCallback(
+    (slideIndex: number) => {
+      const pipe = isStudio ? creativePipeline : dashboardAiPipeline;
+      return pipe.getArtDirection(slideIndex);
+    },
+    [isStudio, creativePipeline, dashboardAiPipeline]
   );
 
   const welcome = useMemo(
@@ -382,8 +397,16 @@ export default function CarouselEditor({
   }, [captions, templateId, images, ready, activeProjectId]);
 
   const runVisualDirector = useCallback(
-    async (urls: string[], fileNames?: string[]) => {
+    async (
+      urls: string[],
+      fileNames?: string[],
+      directionOverride?: CreatorDirection
+    ) => {
       if (!urls.length || demoMode) return;
+      const direction = directionOverride ?? creatorDirection;
+      const effectiveViralMode = directionOverride
+        ? viralModeFromBalance(direction.viralityBalance)
+        : viralMode;
       setIsDirecting(true);
       try {
         const result = await runVisualStoryPipeline({
@@ -392,7 +415,7 @@ export default function CarouselEditor({
           memory: {
             captionTone: creatorMem.captionTone,
             nichePreference,
-            viralMode,
+            viralMode: effectiveViralMode,
             platformMode,
             preferredTemplateId: creatorMem.preferredTemplateId,
           },
@@ -400,7 +423,7 @@ export default function CarouselEditor({
           hookPattern: brandKit.hookPattern || undefined,
           profile: getDirectorProfileSnapshot(),
           styleReference: styleReference ?? undefined,
-          creatorDirection,
+          creatorDirection: direction,
           styleVision: styleVision ?? undefined,
         });
         setTemplateId(result.suggestion.template);
@@ -410,7 +433,7 @@ export default function CarouselEditor({
         setLastAnalysis(result.analysis);
         learnFromStoryGenerated(result.captions, {
           templateId: result.suggestion.template,
-          viralMode,
+          viralMode: effectiveViralMode,
           narrativeAngle: result.brief.narrativeAngle,
         });
         showToast("AI-directed story applied");
@@ -447,19 +470,16 @@ export default function CarouselEditor({
       recordCreatorDirection(next);
       setPlatformMode(next.platform);
       recordPlatformMode(next.platform);
-      if (next.viralityBalance >= 70) {
-        setViralMode("viral");
-        recordViralMode("viral");
-      } else if (next.viralityBalance <= 30) {
-        setViralMode("emotional");
-        recordViralMode("emotional");
-      }
+      const mode = viralModeFromBalance(next.viralityBalance);
+      setViralMode(mode);
+      recordViralMode(mode);
+
       if (directionDebounceRef.current) {
         clearTimeout(directionDebounceRef.current);
       }
       if (images.length > 0 && !demoMode) {
         directionDebounceRef.current = setTimeout(() => {
-          void runVisualDirector(images);
+          void runVisualDirector(images, undefined, next);
         }, MOTION.analyticsDebounceMs);
       }
     },
@@ -510,6 +530,26 @@ export default function CarouselEditor({
     );
   }, []);
 
+  const handleReorderImage = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setImages((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+  }, []);
+
+  const handleSwapSlideImages = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setImages((prev) => {
+      const next = [...prev];
+      if (fromIndex >= next.length || toIndex >= next.length) return prev;
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+      return next;
+    });
+  }, []);
+
   const handleImagesSelected = useCallback(
     async (files: File[]) => {
       if (!files.length) {
@@ -528,11 +568,15 @@ export default function CarouselEditor({
         showToast(
           `${files.length} image${files.length > 1 ? "s" : ""} uploaded`
         );
-        if (aiTextEnabled && !demoMode) {
-          await runVisualDirector(urls, files.map((f) => f.name));
-        } else if (!demoMode && urls.length > 0) {
+        if (!demoMode && urls.length > 0) {
           const analysis = await analyzeImageSet(urls.map((url) => ({ url })));
           setLastAnalysis(analysis);
+          if (!userPickedAiModeRef.current) {
+            setAiDesignMode(suggestAiDesignMode(analysis));
+          }
+        }
+        if (aiTextEnabled && !demoMode) {
+          await runVisualDirector(urls, files.map((f) => f.name));
         }
       } catch {
         recordHealthEvent("imageLoadFailures");
@@ -541,7 +585,14 @@ export default function CarouselEditor({
         setIsUploading(false);
       }
     },
-    [activeProjectId, aiTextEnabled, demoMode, images, runVisualDirector, showToast]
+    [
+      activeProjectId,
+      aiTextEnabled,
+      demoMode,
+      images,
+      runVisualDirector,
+      showToast,
+    ]
   );
 
   const handleCaptionChange = useCallback(
@@ -756,19 +807,11 @@ export default function CarouselEditor({
           message={toast?.message ?? null}
           variant={toast?.variant}
         />
-        <main className="builder-root flex min-h-screen flex-col bg-[#060608] text-white">
-          <BuilderTopBar
-            templateId={templateId}
-            onTemplateChange={(id) => {
-              setTemplateId(id);
-              recordTemplateUse(id);
-            }}
-            onDownload={() => setExportOpen(true)}
-            disabled={isUploading}
-          />
+        <main className="builder-root flex h-[100dvh] flex-col overflow-hidden bg-[#060608] text-white">
+          <BuilderTopBar pipelineStatus={creativePipeline.panelStatus} />
 
           <div className="builder-workspace flex min-h-0 flex-1 flex-col lg:flex-row">
-            <div className="order-2 border-r border-white/[0.06] lg:order-1 lg:w-72 lg:shrink-0 xl:w-80">
+            <aside className="builder-aside builder-panel order-2 min-h-0 w-full shrink-0 border-white/[0.06] lg:order-1 lg:w-64 lg:border-r xl:w-72">
               <BuilderInputPanel
                 templateId={templateId}
                 onTemplateChange={(id) => {
@@ -777,6 +820,7 @@ export default function CarouselEditor({
                 }}
                 images={images}
                 onImagesSelected={handleImagesSelected}
+                onReorderImage={handleReorderImage}
                 onStyleReferenceSelected={handleStyleReferenceSelected}
                 onStyleReferenceClear={handleStyleReferenceClear}
                 styleReferencePreview={styleReferencePreview}
@@ -792,9 +836,9 @@ export default function CarouselEditor({
                 isUploading={isUploading}
                 disabled={isUploading}
               />
-            </div>
+            </aside>
 
-            <div className="order-1 flex min-h-[52vh] min-w-0 flex-1 flex-col lg:order-2">
+            <div className="order-1 flex min-h-0 min-w-0 flex-1 flex-col lg:order-2">
               <BuilderPreview
                 images={images}
                 captions={captions}
@@ -807,13 +851,23 @@ export default function CarouselEditor({
                 storyMood={storyBrief?.mood}
                 styleReference={styleReference}
                 styleVision={styleVision}
-                getAiDesign={isDoodleTemplate ? getAiDesign : undefined}
+                getArtDirection={
+                  images.length > 0 ? getArtDirection : undefined
+                }
                 getSlidePrefs={getSlidePrefs}
+                pipelineStatus={creativePipeline.panelStatus}
+              />
+              <BuilderSlideTimeline
+                images={images}
+                selectedIndex={selectedSlideIndex}
+                onSelectSlide={setSelectedSlideIndex}
+                onSwapSlides={handleSwapSlideImages}
+                disabled={isUploading}
               />
             </div>
 
-            <div className="order-3 border-l border-white/[0.06] lg:w-72 lg:shrink-0 xl:w-80">
-              <BuilderSlideEditor
+            <aside className="builder-aside builder-panel order-3 min-h-0 w-full shrink-0 border-white/[0.06] lg:w-72 lg:border-l xl:w-80">
+              <BuilderInspector
                 slideIndex={selectedSlideIndex}
                 slideKey={slideKey}
                 caption={captions[slideKey]}
@@ -821,8 +875,12 @@ export default function CarouselEditor({
                 onCaptionChange={handleCaptionChange}
                 onPrefsChange={patchSlidePrefs}
                 isDoodleTemplate={isDoodleTemplate}
+                slideRefs={slideRefs}
+                onToast={showToast}
+                onExportComplete={handleExportComplete}
+                exportDisabled={isUploading || images.length === 0}
               />
-            </div>
+            </aside>
           </div>
 
           <div className="builder-mobile-bar fixed bottom-0 left-0 right-0 z-40 flex gap-2 border-t border-white/[0.08] bg-[#060608]/95 p-3 backdrop-blur-lg lg:hidden">
@@ -832,24 +890,21 @@ export default function CarouselEditor({
               disabled={isGenerating || isUploading}
               className="builder-cta flex-1 rounded-xl py-3 text-xs font-bold text-black disabled:opacity-50"
             >
-              {isGenerating ? "Generating…" : "Generate"}
+              {isGenerating ? "Art-directing…" : "Generate carousel"}
             </button>
             <button
               type="button"
-              onClick={() => setExportOpen(true)}
+              disabled={isUploading || images.length === 0}
+              onClick={() =>
+                document
+                  .getElementById("builder-export-strip")
+                  ?.scrollIntoView({ behavior: "smooth", block: "nearest" })
+              }
               className="rounded-xl border border-white/10 px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-300"
             >
               Export
             </button>
           </div>
-
-          <BuilderDownload
-            open={exportOpen}
-            onClose={() => setExportOpen(false)}
-            slideRefs={slideRefs}
-            onToast={showToast}
-            onComplete={handleExportComplete}
-          />
         </main>
       </>
     );
@@ -950,10 +1005,10 @@ export default function CarouselEditor({
                     userPickedAiModeRef.current = true;
                     setAiDesignMode(mode);
                   }}
-                  status={aiPipeline.status}
-                  aiAvailable={aiPipeline.aiAvailable}
+                  status={dashboardAiPipeline.panelStatus}
+                  aiAvailable={dashboardAiPipeline.aiAvailable}
                   disabled={isDirecting || isUploading || images.length === 0}
-                  onRegenerate={() => void aiPipeline.regenerate()}
+                  onRegenerate={() => void dashboardAiPipeline.regenerate()}
                 />
               )}
               <UploadPanel
@@ -1017,7 +1072,9 @@ export default function CarouselEditor({
                 storyMood={storyBrief?.mood}
                 styleReference={styleReference}
                 styleVision={styleVision}
-                getAiDesign={isDoodleTemplate ? getAiDesign : undefined}
+                getArtDirection={
+                  images.length > 0 ? getArtDirection : undefined
+                }
                 onOpenStoryboard={() => setStoryboardOpen(true)}
               />
               <ExportPanel
@@ -1033,7 +1090,9 @@ export default function CarouselEditor({
                 storyMood={storyBrief?.mood}
                 styleReference={styleReference}
                 styleVision={styleVision}
-                getAiDesign={isDoodleTemplate ? getAiDesign : undefined}
+                getArtDirection={
+                  images.length > 0 ? getArtDirection : undefined
+                }
               />
             </div>
           </div>
@@ -1050,7 +1109,7 @@ export default function CarouselEditor({
         storyMood={storyBrief?.mood}
         styleReference={styleReference}
         styleVision={styleVision}
-        getAiDesign={isDoodleTemplate ? getAiDesign : undefined}
+        getArtDirection={images.length > 0 ? getArtDirection : undefined}
         showPlanWatermark={showWatermark}
       />
     </main>

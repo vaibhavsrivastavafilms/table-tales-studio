@@ -65,6 +65,30 @@ const TEMPLATE_DIRECTION: Record<TemplateId, Partial<CreativeDirection>> = {
     music: ["Soft vinyl crackle, minimal beat"],
     lighting: ["Golden hour warmth, cream highlights, gentle falloff"],
   },
+  "cozy-monsoon": {
+    shots: [
+      "Rain-streaked window with steam rising from chai",
+      "Comfort bowl in cool blue-gold monsoon light",
+      "Shared umbrella café moment",
+    ],
+    camera: ["Soft handheld, stay on steam and hands"],
+    mood: ["Monsoon nostalgia — warm inside, rain outside"],
+    pacing: ["Slow emotional beats, handwritten microcopy"],
+    music: ["Rain on glass, distant thunder pad"],
+    lighting: ["Cool ambient fill, warm practical on food"],
+  },
+  "relationship-story": {
+    shots: [
+      "Two hands sharing one plate",
+      "Candid laugh across the table",
+      "Save-this memory close-up",
+    ],
+    camera: ["Static editorial frames", "Sticker rhythm only"],
+    mood: ["Relationship-coded comfort, witty tenderness"],
+    pacing: ["Burst hook → emotional ribbon → save CTA"],
+    music: ["Soft vinyl, minimal beat"],
+    lighting: ["Golden hour warmth, cream highlights"],
+  },
   "doodle-story": {
     shots: [
       "Overhead latte art or pastry hero",
@@ -77,7 +101,7 @@ const TEMPLATE_DIRECTION: Record<TemplateId, Partial<CreativeDirection>> = {
       "Hand-drawn white doodle layers only",
     ],
     mood: [
-      "Doodle Café Stories — cozy cinematic",
+      "Doodle Café — cozy cinematic",
       "Pinterest emotional warmth",
       "Premium playful editorial",
     ],

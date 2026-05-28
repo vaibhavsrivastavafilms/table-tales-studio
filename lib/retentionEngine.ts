@@ -126,7 +126,7 @@ export function getRetentionPattern(
     return PATTERNS.find((p) => p.id === id) ?? PATTERNS[0];
   }
 
-  if (pacingStyle === "high-retention" || hookIntensity === "viral") {
+  if (hookIntensity === "viral" || pacingStyle === "high-retention") {
     return (
       PATTERNS.find((p) => p.id === "swipe-curiosity") ??
       PATTERNS.find((p) => p.id === "curiosity-escalation") ??
@@ -134,20 +134,23 @@ export function getRetentionPattern(
     );
   }
 
+  if (hookIntensity === "balanced") {
+    return PATTERNS.find((p) => p.id === "save-worthy") ?? PATTERNS[0];
+  }
+
   if (pacingStyle) {
     const id = PACING_MAP[pacingStyle];
     const match = PATTERNS.find((p) => p.id === id);
     if (match) return match;
   }
+
   if (energy === "high") {
     return PATTERNS.find((p) => p.id === "pattern-interrupt") ?? PATTERNS[0];
   }
   if (energy === "slow") {
     return PATTERNS.find((p) => p.id === "emotional-build") ?? PATTERNS[0];
   }
-  if (hookIntensity === "balanced") {
-    return PATTERNS.find((p) => p.id === "save-worthy") ?? PATTERNS[0];
-  }
+
   return PATTERNS.find((p) => p.id === "curiosity-escalation") ?? PATTERNS[0];
 }
 

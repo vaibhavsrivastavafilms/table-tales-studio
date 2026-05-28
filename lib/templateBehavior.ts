@@ -66,6 +66,27 @@ const BEHAVIOR: Record<TemplateId, TemplateBehaviorOverrides> = {
     vignetteBoost: 0,
     pacingNote: "Editorial stickers, floating cards, relationship-coded beats.",
   },
+  "cozy-monsoon": {
+    visual: {
+      captionDensity: "balanced",
+      imageSaturation: 0.98,
+      motionFeel: "slow",
+      badgeStyle: "elegant",
+    },
+    fontScaleMultiplier: 1,
+    vignetteBoost: 0.06,
+    pacingNote: "Monsoon café mood — cool ambient, warm food glow, poetic pacing.",
+  },
+  "relationship-story": {
+    visual: {
+      captionDensity: "sparse",
+      motionFeel: "editorial",
+      badgeStyle: "comic-sticker",
+    },
+    fontScaleMultiplier: 0.94,
+    vignetteBoost: 0,
+    pacingNote: "Relationship storytelling — editorial stickers, memory-journal rhythm.",
+  },
   "doodle-story": {
     visual: {
       captionDensity: "balanced",
@@ -76,7 +97,7 @@ const BEHAVIOR: Record<TemplateId, TemplateBehaviorOverrides> = {
     fontScaleMultiplier: 0.92,
     vignetteBoost: 0,
     pacingNote:
-      "LOCKED Doodle Café Stories — Pinterest doodles, #f4c430 highlights, floating editorial.",
+      "Doodle Café — Pinterest doodles, #f4c430 highlights, floating editorial.",
   },
 };
 

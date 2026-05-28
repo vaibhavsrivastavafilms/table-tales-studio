@@ -186,7 +186,11 @@ export function generateNarrative(input: {
     cta,
   };
 
-  const pattern = getRetentionPattern(analysis.energy, profile.pacingStyle);
+  const pattern = getRetentionPattern(
+    analysis.energy,
+    profile.pacingStyle,
+    profile.hookIntensity
+  );
   let flowDensity = profile.captionDensity;
   if (styleReference?.captionDensity === "minimal") flowDensity = "minimal";
   else if (styleReference?.captionDensity === "dense") flowDensity = "dense";

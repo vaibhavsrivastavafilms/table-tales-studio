@@ -12,6 +12,7 @@ import {
 } from "@/lib/styleReference";
 import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
 import type { SlideEditorPrefs } from "@/lib/slideEditorPrefs";
+import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import { DOODLE_CAFE_ACCENT } from "@/lib/doodleCafeLock";
 import {
@@ -37,6 +38,7 @@ export type CarouselSlideProps = {
   styleVision?: StyleVisionResult | null;
   aiDesign?: AiSlideDesign | null;
   slidePrefs?: SlideEditorPrefs;
+  artDirection?: SlideArtDirection | null;
 };
 
 const SLIDE_WIDTH = 320;
@@ -57,6 +59,7 @@ const CarouselSlide = memo(
       styleVision,
       aiDesign,
       slidePrefs,
+      artDirection,
     },
     ref
   ) {
@@ -86,10 +89,11 @@ const CarouselSlide = memo(
     };
     const isEditorial = isEditorialTemplate || blended.useEditorialLayout;
     const accent = isDoodle
-      ? DOODLE_CAFE_ACCENT
-      : brandKit
-        ? resolveSlideAccent(blended.accentColor ?? config.accentColor, brandKit)
-        : (blended.accentColor ?? config.accentColor);
+      ? (artDirection?.accentColor ?? DOODLE_CAFE_ACCENT)
+      : artDirection?.accentColor ??
+        (brandKit
+          ? resolveSlideAccent(blended.accentColor ?? config.accentColor, brandKit)
+          : (blended.accentColor ?? config.accentColor));
     const captionAlignment = blended.captionAlignment;
     const bottomFadeOpacity =
       blended.bottomFadeOpacity ?? config.bottomFadeOpacity;
@@ -108,10 +112,14 @@ const CarouselSlide = memo(
     const displayWatermark =
       watermarkText ??
       (showWatermark ? "Made with Table Tales Studio" : null);
+    const effectiveAlign =
+      slidePrefs?.captionAlignment ??
+      artDirection?.typography?.align ??
+      captionAlignment;
     const captionAlignClass =
-      config.captionAlignment === "left"
+      effectiveAlign === "left"
         ? "text-left"
-        : config.captionAlignment === "right"
+        : effectiveAlign === "right"
           ? "text-right"
           : "text-center";
 
@@ -127,11 +135,21 @@ const CarouselSlide = memo(
 
     const placementTop = slidePrefs?.captionPlacement === "top";
     const placementBottom = slidePrefs?.captionPlacement === "bottom";
+    const weightTop = artDirection?.layout?.visualWeight === "top";
+    const weightBottom = artDirection?.layout?.visualWeight === "bottom";
+    const weightCenter = artDirection?.layout?.visualWeight === "center";
     const captionBottom =
-      placementBottom || (!placementTop && !styleReference?.textPlacement.top);
+      placementBottom ||
+      weightBottom ||
+      (!placementTop && !weightTop && !styleReference?.textPlacement.top && !weightCenter);
     const captionTop =
       placementTop ||
-      (!placementBottom && !!styleReference?.textPlacement.top && !captionBottom);
+      weightTop ||
+      (!placementBottom && !weightBottom && !!styleReference?.textPlacement.top && !captionBottom);
+    const captionCentered = weightCenter && !placementTop && !placementBottom;
+    const typeReveal = artDirection
+      ? Math.min(1, Math.max(0, (artDirection.reveal - 0.2) / 0.5))
+      : 1;
 
     return (
       <article
@@ -168,6 +186,7 @@ const CarouselSlide = memo(
             visual={visual}
             aiDesign={aiDesign}
             slidePrefs={slidePrefs}
+            artDirection={artDirection}
           />
         ) : isRichRelationshipTemplate(config.id) ? (
           <RichRelationshipSlide
@@ -194,22 +213,44 @@ const CarouselSlide = memo(
                 decoding="async"
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{
-                  filter: `contrast(${visual.imageContrast}) saturate(${visual.imageSaturation})`,
+                  filter:
+                    artDirection?.photoFilter ??
+                    `contrast(${visual.imageContrast}) saturate(${visual.imageSaturation})`,
                 }}
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-[#0b0f1a] to-black" />
             )}
 
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{ background: overlayGradient }}
-            />
+            {artDirection?.layout?.gradientZones?.top ? (
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: artDirection.layout.gradientZones.top,
+                  opacity: overlayScale,
+                }}
+              />
+            ) : (
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{ background: overlayGradient }}
+              />
+            )}
+
+            {artDirection?.layout?.gradientZones?.bottom ? (
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: artDirection.layout.gradientZones.bottom,
+                  opacity: overlayScale,
+                }}
+              />
+            ) : null}
 
             <div
               className="pointer-events-none absolute inset-0"
               style={{
-                background: `radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,${config.vignetteIntensity}) 100%)`,
+                background: `radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,${artDirection?.layout?.gradientZones?.vignette ?? config.vignetteIntensity}) 100%)`,
               }}
             />
 
@@ -272,20 +313,29 @@ const CarouselSlide = memo(
             </div>
 
             <div
-              className={`absolute inset-x-0 z-10 flex px-6 ${
-                captionTop ? "top-0 pb-8 pt-14" : "bottom-0 pb-10 pt-16"
+              className={`absolute inset-x-0 z-10 flex px-6 ${artDirection?.composition?.motionClass ?? ""} ${
+                captionCentered
+                  ? "inset-0 items-center justify-center py-0"
+                  : captionTop
+                    ? "top-0 pb-8 pt-14"
+                    : "bottom-0 pb-10 pt-16"
               } ${
-                captionAlignment === "left"
-                  ? "justify-start"
-                  : captionAlignment === "right"
+                effectiveAlign === "center"
+                  ? "justify-center"
+                  : effectiveAlign === "right"
                     ? "justify-end"
-                    : "justify-center"
+                    : "justify-start"
               }`}
+              style={{ opacity: typeReveal }}
             >
               <p
                 className={`max-w-[260px] font-bold leading-snug tracking-tight text-white ${captionAlignClass}`}
                 style={{
-                  fontSize: `${fontSize}px`,
+                  fontSize: `${Math.round(
+                    fontSize *
+                      (artDirection?.typography?.scale ?? 1) *
+                      (slidePrefs?.typographyScale ?? 1)
+                  )}px`,
                   textShadow:
                     "0 2px 14px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.85)",
                 }}

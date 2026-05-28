@@ -4,6 +4,7 @@ import { memo } from "react";
 import type { SlideKey } from "@/lib/slides";
 import {
   DEFAULT_SLIDE_PREFS,
+  type CaptionAlignmentPref,
   type CaptionPlacementPref,
   type SlideEditorPrefs,
 } from "@/lib/slideEditorPrefs";
@@ -31,15 +32,12 @@ function BuilderSlideEditor({
     onPrefsChange(slideIndex, p);
 
   return (
-    <aside className="builder-panel flex flex-col gap-4 p-4 md:p-5">
+    <aside className="builder-panel flex h-full flex-col gap-4 overflow-y-auto p-4 md:p-5">
       <div>
         <h2 className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-          Slide editor
+          Slide {slideIndex + 1}
         </h2>
-        <p className="mt-1 text-sm font-semibold text-white">
-          Slide {slideIndex + 1}{" "}
-          <span className="font-normal text-zinc-500">· {slideKey}</span>
-        </p>
+        <p className="mt-0.5 text-[11px] text-zinc-600">Fine-tune this frame</p>
       </div>
 
       <label className="block">
@@ -51,7 +49,7 @@ function BuilderSlideEditor({
           onChange={(e) => onCaptionChange(slideKey, e.target.value)}
           rows={4}
           className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-black/40 p-3 text-sm text-white placeholder:text-zinc-600 focus:border-[#f4c430]/40 focus:outline-none"
-          placeholder="Write your slide caption…"
+          placeholder="Emotional beat for this slide…"
         />
       </label>
 
@@ -71,10 +69,48 @@ function BuilderSlideEditor({
         </select>
       </label>
 
+      <label className="block text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+        Alignment
+        <select
+          value={prefs.captionAlignment}
+          onChange={(e) =>
+            patch({
+              captionAlignment: e.target.value as CaptionAlignmentPref,
+            })
+          }
+          className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-2 py-2 text-sm text-white"
+        >
+          <option value="left">Left</option>
+          <option value="center">Center</option>
+          <option value="right">Right</option>
+        </select>
+      </label>
+
+      <label className="block">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+          Typography size
+        </span>
+        <div className="mt-2 flex items-center gap-3">
+          <input
+            type="range"
+            min={85}
+            max={125}
+            value={Math.round(prefs.typographyScale * 100)}
+            onChange={(e) =>
+              patch({ typographyScale: Number(e.target.value) / 100 })
+            }
+            className="flex-1 accent-[#f4c430]"
+          />
+          <span className="w-10 text-right text-xs text-zinc-400">
+            {Math.round(prefs.typographyScale * 100)}%
+          </span>
+        </div>
+      </label>
+
       {isDoodleTemplate && (
         <>
           <label className="flex items-center justify-between gap-3">
-            <span className="text-sm text-zinc-300">Show doodles</span>
+            <span className="text-sm text-zinc-300">Doodles</span>
             <input
               type="checkbox"
               checked={prefs.doodlesEnabled}
@@ -103,6 +139,27 @@ function BuilderSlideEditor({
               </span>
             </div>
           </label>
+
+          <label className="block">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+              Sticker density
+            </span>
+            <div className="mt-2 flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(prefs.stickerDensity * 100)}
+                onChange={(e) =>
+                  patch({ stickerDensity: Number(e.target.value) / 100 })
+                }
+                className="flex-1 accent-[#f4c430]"
+              />
+              <span className="w-8 text-right text-xs text-zinc-400">
+                {Math.round(prefs.stickerDensity * 100)}%
+              </span>
+            </div>
+          </label>
         </>
       )}
 
@@ -111,7 +168,7 @@ function BuilderSlideEditor({
         onClick={() => onPrefsChange(slideIndex, { ...DEFAULT_SLIDE_PREFS })}
         className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600 hover:text-zinc-400"
       >
-        Reset slide settings
+        Reset slide
       </button>
     </aside>
   );

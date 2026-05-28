@@ -3,9 +3,9 @@
 import { memo, useMemo, type MutableRefObject } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
 import EmptyState from "@/components/EmptyState";
-import { SLIDE_KEYS, SLIDE_COUNT, type Captions } from "@/lib/slides";
+import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
-import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
+import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { SlideEditorPrefs } from "@/lib/slideEditorPrefs";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
@@ -23,8 +23,9 @@ type BuilderPreviewProps = {
   storyMood?: string;
   styleReference?: StyleReference | null;
   styleVision?: StyleVisionResult | null;
-  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
+  getArtDirection?: (slideIndex: number) => SlideArtDirection | null;
   getSlidePrefs?: (slideIndex: number) => SlideEditorPrefs;
+  pipelineStatus?: "idle" | "loading" | "ready" | "partial" | "fallback";
 };
 
 function BuilderPreview({
@@ -39,8 +40,9 @@ function BuilderPreview({
   storyMood,
   styleReference,
   styleVision,
-  getAiDesign,
+  getArtDirection,
   getSlidePrefs,
+  pipelineStatus = "idle",
 }: BuilderPreviewProps) {
   const watermark = resolveWatermarkText(
     brandKit ?? DEFAULT_BRAND_KIT,
@@ -58,56 +60,143 @@ function BuilderPreview({
     [images, captions]
   );
 
+  const selected = slides[selectedIndex] ?? slides[0];
+  const slideProps = (slide: (typeof slides)[0]) => ({
+    image: slide.image,
+    text: slide.text,
+    index: slide.index,
+    templateId,
+    brandKit,
+    watermarkText: watermark,
+    storyMood,
+    styleReference,
+    styleVision,
+    artDirection: getArtDirection?.(slide.index) ?? null,
+    aiDesign: getArtDirection?.(slide.index)?.aiOverlay ?? null,
+    slidePrefs: getSlidePrefs?.(slide.index),
+  });
+
+  const statusLabel =
+    pipelineStatus === "loading"
+      ? "Art directing…"
+      : pipelineStatus === "ready"
+        ? "Carousel ready"
+        : pipelineStatus === "partial"
+          ? "Partial AI layers"
+          : pipelineStatus === "fallback"
+            ? "Procedural art direction"
+            : null;
+
   return (
-    <section className="builder-preview flex min-h-0 flex-1 flex-col p-4 md:p-6">
+    <section className="builder-preview flex min-h-0 flex-1 flex-col">
       {images.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-2xl border border-white/[0.06] bg-black/20">
+        <div className="flex flex-1 items-center justify-center p-6">
           <EmptyState
-            icon="📷"
-            title="Upload photos to preview your carousel"
-            description="Choose a template, add food images, then generate or edit captions."
+            icon="◈"
+            title="Upload food photos to begin"
+            description="AI will redesign layout, typography, doodles, and emotional pacing — no templates, just art direction."
           />
         </div>
       ) : (
         <>
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs text-zinc-500">
-              {SLIDE_COUNT} slides · swipe to browse
+          <div className="flex shrink-0 items-center justify-between px-4 pt-4 md:px-6">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+              Live storyboard
             </p>
-            <p className="text-xs font-semibold text-[#f4c430]">
-              Slide {selectedIndex + 1}
-            </p>
+            <div className="flex items-center gap-2">
+              {statusLabel && (
+                <span
+                  className={`text-[10px] font-semibold uppercase tracking-wider ${
+                    pipelineStatus === "loading"
+                      ? "text-[#f4c430] studio-shimmer"
+                      : "text-zinc-500"
+                  }`}
+                >
+                  {statusLabel}
+                </span>
+              )}
+              <span className="text-xs font-semibold text-[#f4c430]">
+                Slide {selectedIndex + 1}
+              </span>
+            </div>
           </div>
-          <div className="carousel-scroll flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
+
+          {/* Off-screen slides — export capture targets (preview parity) */}
+          <div className="builder-export-rack" aria-hidden>
             {slides.map((slide, i) => (
-              <button
-                key={slide.key}
-                type="button"
-                onClick={() => onSelectSlide(i)}
-                className={`shrink-0 snap-center rounded-2xl transition-all duration-300 ${
-                  i === selectedIndex
-                    ? "ring-2 ring-[#f4c430] scale-[1.02]"
-                    : "opacity-75 ring-1 ring-white/10 hover:opacity-100"
-                }`}
-              >
-                <CarouselSlide
-                  ref={(el) => {
-                    slideRefs.current[i] = el;
-                  }}
-                  image={slide.image}
-                  text={slide.text}
-                  index={slide.index}
-                  templateId={templateId}
-                  brandKit={brandKit}
-                  watermarkText={watermark}
-                  storyMood={storyMood}
-                  styleReference={styleReference}
-                  styleVision={styleVision}
-                  aiDesign={getAiDesign?.(slide.index) ?? null}
-                  slidePrefs={getSlidePrefs?.(slide.index)}
-                />
-              </button>
+              <CarouselSlide
+                key={`export-${slide.key}`}
+                ref={(el) => {
+                  slideRefs.current[i] = el;
+                }}
+                {...slideProps(slide)}
+              />
             ))}
+          </div>
+
+          <div className="builder-stage flex min-h-0 flex-1 items-center justify-center px-4 py-2 md:px-8">
+            <div className="builder-hero-wrap art-motion-float">
+              <CarouselSlide key={`hero-${selected.key}`} {...slideProps(selected)} />
+            </div>
+          </div>
+
+          <div className="builder-grid shrink-0 border-t border-white/[0.06] px-3 py-3 md:px-4">
+            <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-zinc-600">
+              All slides
+            </p>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {slides.map((slide, i) => {
+                const art = getArtDirection?.(slide.index);
+                const active = i === selectedIndex;
+                return (
+                  <button
+                    key={`grid-${slide.key}`}
+                    type="button"
+                    onClick={() => onSelectSlide(i)}
+                    className={`builder-grid-cell relative overflow-hidden rounded-xl transition-all duration-300 ${
+                      active
+                        ? "ring-2 ring-[#f4c430]"
+                        : "ring-1 ring-white/10 opacity-70 hover:opacity-100"
+                    }`}
+                    aria-label={`Preview slide ${i + 1}`}
+                    aria-current={active ? "true" : undefined}
+                  >
+                    {slide.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={slide.image}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{
+                          filter: art?.photoFilter ?? undefined,
+                        }}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <span className="flex h-full items-center justify-center text-sm text-zinc-600">
+                        {i + 1}
+                      </span>
+                    )}
+                    <span
+                      className={`absolute bottom-1 left-1 rounded px-1 py-0.5 text-[9px] font-bold ${
+                        active
+                          ? "bg-[#f4c430] text-black"
+                          : "bg-black/75 text-zinc-400"
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    {pipelineStatus === "loading" && active && (
+                      <span
+                        className="absolute inset-0 bg-black/30"
+                        aria-hidden
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </>
       )}

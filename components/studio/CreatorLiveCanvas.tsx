@@ -7,7 +7,7 @@ import AiCreationTimeline, {
 } from "@/components/studio/AiCreationTimeline";
 import type { Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, type BrandKit } from "@/lib/brandKit";
-import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
+import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import type { TemplateId } from "@/lib/templates";
@@ -22,7 +22,7 @@ type CreatorLiveCanvasProps = {
   storyMood?: string;
   styleReference?: StyleReference | null;
   styleVision?: StyleVisionResult | null;
-  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
+  getArtDirection?: (slideIndex: number) => SlideArtDirection | null;
   onOpenStoryboard?: () => void;
   isUploading: boolean;
   isDirecting: boolean;
@@ -40,7 +40,7 @@ function CreatorLiveCanvas({
   storyMood,
   styleReference,
   styleVision,
-  getAiDesign,
+  getArtDirection,
   onOpenStoryboard,
   isUploading,
   isDirecting,
@@ -103,7 +103,7 @@ function CreatorLiveCanvas({
               storyMood={storyMood}
               styleReference={styleReference}
               styleVision={styleVision}
-              getAiDesign={getAiDesign}
+              getArtDirection={getArtDirection}
               onOpenStoryboard={onOpenStoryboard}
               studioMode
             />

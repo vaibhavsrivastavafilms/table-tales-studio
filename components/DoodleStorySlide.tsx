@@ -17,6 +17,7 @@ import {
   proceduralDoodleOpacity,
 } from "@/lib/aiOverlayRenderer";
 import type { SlideEditorPrefs } from "@/lib/slideEditorPrefs";
+import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import { getTemplateConfig, type TemplateVisualTreatment } from "@/lib/templates";
@@ -36,6 +37,7 @@ type DoodleStorySlideProps = {
   visual?: TemplateVisualTreatment;
   aiDesign?: AiSlideDesign | null;
   slidePrefs?: SlideEditorPrefs;
+  artDirection?: SlideArtDirection | null;
 };
 
 const DEFAULT_W = 320;
@@ -83,38 +85,64 @@ function DoodleStorySlide({
   visual: visualProp,
   aiDesign,
   slidePrefs,
+  artDirection,
 }: DoodleStorySlideProps) {
   const templateVisual =
     visualProp ?? getTemplateConfig("doodle-story").visual;
-  const photo = getLockedPhotoTreatment(templateVisual);
-  const overlays = getLockedOverlayLayers();
-  const overlayMix = slidePrefs?.overlayIntensity ?? 1;
-  const doodlesOn = slidePrefs?.doodlesEnabled ?? true;
-  const highlight = DOODLE_CAFE_ACCENT;
+  const overlayMix = (slidePrefs?.overlayIntensity ?? 1) * (artDirection?.reveal ?? 1);
+  const doodlesOn = (slidePrefs?.doodlesEnabled ?? true) && (artDirection?.phase !== "layout");
+  const highlight = artDirection?.highlightColor ?? DOODLE_CAFE_ACCENT;
   const borderRadius = templateVisual.borderRadius ?? 28;
 
-  const composition = useMemo(
-    () =>
-      buildDoodleComposition({
-        caption: text,
-        slideIndex: index,
-        width,
-        height,
-        styleReference,
-        styleVision,
-        mood,
-      }),
-    [text, index, width, height, styleReference, styleVision, mood]
-  );
+  const composition = useMemo(() => {
+    if (artDirection?.doodles) return artDirection.doodles.procedural;
+    return buildDoodleComposition({
+      caption: text,
+      slideIndex: index,
+      width,
+      height,
+      styleReference,
+      styleVision,
+      mood,
+    });
+  }, [artDirection, text, index, width, height, styleReference, styleVision, mood]);
+
+  const photoFilter = artDirection?.photoFilter;
+  const overlays = artDirection?.overlayLayers ?? getLockedOverlayLayers();
+  const gradientTop = artDirection?.layout?.gradientZones?.top;
+  const gradientBottom = artDirection?.layout?.gradientZones?.bottom;
+  const vignetteStrength = artDirection?.layout?.gradientZones?.vignette ?? 0.28;
+  const photoGrain =
+    artDirection?.emotional?.grain ?? templateVisual.grainOpacity ?? 0.025;
+
+  const captionCard = artDirection?.composition?.captionCard ?? {
+        x: composition.captionCard.x,
+        y: composition.captionCard.y,
+        width: composition.captionCard.width,
+        rotation: composition.captionCard.rotation,
+      };
+
+  const typeReveal = artDirection
+    ? Math.min(1, Math.max(0, (artDirection.reveal - 0.2) / 0.5))
+    : 1;
+  const doodleReveal = artDirection
+    ? Math.min(1, Math.max(0, (artDirection.reveal - 0.45) / 0.45))
+    : 1;
 
   const displayWatermark =
     watermarkText ?? (showWatermark ? "Made with Table Tales Studio" : null);
 
   const scriptLine =
-    composition.scriptLine &&
-    !text.toUpperCase().includes(composition.scriptLine.toUpperCase())
-      ? composition.scriptLine
+    (artDirection?.typography?.scriptLine ?? composition.scriptLine) &&
+    !text
+      .toUpperCase()
+      .includes(
+        (artDirection?.typography?.scriptLine ?? composition.scriptLine ?? "").toUpperCase()
+      )
+      ? (artDirection?.typography?.scriptLine ?? composition.scriptLine)
       : undefined;
+
+  const aiLayer = artDirection?.aiOverlay ?? aiDesign;
 
   return (
     <>
@@ -127,7 +155,7 @@ function DoodleStorySlide({
           loading="lazy"
           decoding="async"
           className="absolute inset-0 h-full w-full object-cover"
-          style={{ filter: photo.filter }}
+          style={{ filter: photoFilter ?? getLockedPhotoTreatment(templateVisual).filter }}
         />
       ) : (
         <div
@@ -138,24 +166,35 @@ function DoodleStorySlide({
         />
       )}
 
+      {gradientTop && (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: gradientTop, opacity: overlayMix }}
+        />
+      )}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ background: overlays.vertical, opacity: overlayMix }}
+        style={{ background: overlays.tungsten, opacity: overlayMix * 0.9 }}
       />
+      {gradientBottom && (
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ background: gradientBottom, opacity: overlayMix }}
+        />
+      )}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ background: overlays.tungsten, opacity: overlayMix }}
-      />
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ background: overlays.vignette, opacity: overlayMix }}
+        style={{
+          background: `radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,${vignetteStrength}) 100%)`,
+          opacity: overlayMix,
+        }}
       />
 
-      {photo.grain > 0 && (
+      {photoGrain > 0 && (
         <div
           className="pointer-events-none absolute inset-0 mix-blend-overlay"
           style={{
-            opacity: photo.grain,
+            opacity: photoGrain * overlayMix,
             backgroundImage:
               "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E\")",
           }}
@@ -163,9 +202,9 @@ function DoodleStorySlide({
         />
       )}
 
-      {aiDesign?.overlayUrl && (
+      {aiLayer?.overlayUrl && (
         <img
-          src={aiDesign.overlayUrl}
+          src={aiLayer.overlayUrl}
           alt=""
           width={width}
           height={height}
@@ -173,14 +212,14 @@ function DoodleStorySlide({
           decoding="async"
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           style={{
-            ...overlayImageStyle(aiDesign),
-            opacity: (aiDesign.source === "ai" ? 0.94 : 0) * overlayMix,
+            ...overlayImageStyle(aiLayer),
+            opacity: (aiLayer.source === "ai" ? 0.94 : 0) * overlayMix * doodleReveal,
           }}
           aria-hidden
         />
       )}
 
-      {aiDesign?.loading && (
+      {aiLayer?.loading && (
         <div
           className="pointer-events-none absolute inset-0 z-[17] flex items-end justify-center pb-6"
           aria-hidden
@@ -194,7 +233,14 @@ function DoodleStorySlide({
       {doodlesOn && (
         <div
           className="pointer-events-none absolute inset-0 z-[18]"
-          style={{ opacity: proceduralDoodleOpacity(aiDesign) * overlayMix }}
+          style={{
+            opacity:
+              proceduralDoodleOpacity(aiLayer) *
+              overlayMix *
+              doodleReveal *
+              (artDirection?.doodles?.density ?? 1) *
+              (slidePrefs?.stickerDensity ?? 1),
+          }}
           aria-hidden
         >
           <DoodleOverlay
@@ -206,31 +252,37 @@ function DoodleStorySlide({
       )}
 
       <div
-        className="pointer-events-none absolute z-[22] px-0"
+        className={`pointer-events-none absolute z-[22] px-0 ${artDirection?.composition?.motionClass ?? ""}`}
         style={{
-          left: composition.captionCard.x,
+          left: captionCard.x,
           top:
             slidePrefs?.captionPlacement === "bottom"
               ? height - 120
-              : composition.captionCard.y,
-          width: composition.captionCard.width,
-          transform: `rotate(${composition.captionCard.rotation}deg)`,
+              : captionCard.y,
+          width: captionCard.width,
+          transform: `rotate(${captionCard.rotation}deg)`,
           borderRadius,
+          opacity: typeReveal,
         }}
       >
         <EditorialCaption
           text={text}
           highlightColor={highlight}
           scriptLine={scriptLine}
-          align="left"
+          align={
+            slidePrefs?.captionAlignment === "center" ||
+            artDirection?.typography?.align === "center"
+              ? "center"
+              : "left"
+          }
         />
       </div>
 
-      {composition.showQr && (
+      {(artDirection?.showQr ?? composition.showQr) && (
         <QrDecor x={width - 62} y={height - 78} />
       )}
 
-      {composition.showPin && (
+      {(artDirection?.showPin ?? composition.showPin) && (
         <div
           className="pointer-events-none absolute z-[20]"
           style={{ left: width - 36, top: height - 36 }}

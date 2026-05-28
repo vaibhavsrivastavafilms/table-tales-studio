@@ -7,7 +7,7 @@ import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
+import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { TemplateId } from "@/lib/templates";
 
 type PreviewPanelProps = {
@@ -21,7 +21,7 @@ type PreviewPanelProps = {
   styleReference?: StyleReference | null;
   styleVision?: StyleVisionResult | null;
   onOpenStoryboard?: () => void;
-  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
+  getArtDirection?: (slideIndex: number) => SlideArtDirection | null;
   studioMode?: boolean;
 };
 
@@ -36,7 +36,7 @@ function PreviewPanel({
   styleReference,
   styleVision,
   onOpenStoryboard,
-  getAiDesign,
+  getArtDirection,
   studioMode = false,
 }: PreviewPanelProps) {
   const watermark = resolveWatermarkText(brandKit ?? DEFAULT_BRAND_KIT, showWatermark);
@@ -74,7 +74,8 @@ function PreviewPanel({
                 storyMood={storyMood}
                 styleReference={styleReference}
                 styleVision={styleVision}
-                aiDesign={getAiDesign?.(slide.index) ?? null}
+                artDirection={getArtDirection?.(slide.index) ?? null}
+                aiDesign={getArtDirection?.(slide.index)?.aiOverlay ?? null}
               />
             </div>
           ))}
@@ -135,7 +136,8 @@ function PreviewPanel({
                   storyMood={storyMood}
                   styleReference={styleReference}
                   styleVision={styleVision}
-                  aiDesign={getAiDesign?.(slide.index) ?? null}
+                  artDirection={getArtDirection?.(slide.index) ?? null}
+                  aiDesign={getArtDirection?.(slide.index)?.aiOverlay ?? null}
                 />
               </div>
             ))}

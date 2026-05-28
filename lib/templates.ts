@@ -4,7 +4,9 @@ export type TemplateId =
   | "founder-story"
   | "luxury-dining"
   | "rich-relationship"
-  | "doodle-story";
+  | "doodle-story"
+  | "cozy-monsoon"
+  | "relationship-story";
 
 export type CaptionAlignment = "left" | "center" | "right";
 export type CaptionDensity = "sparse" | "balanced" | "dense";
@@ -184,8 +186,55 @@ export const TEMPLATE_LIST: TemplateConfig[] = [
     },
   },
   {
+    id: "cozy-monsoon",
+    name: "Cozy Monsoon",
+    badgeText: "Monsoon",
+    accentColor: "#7eb8c9",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(12,28,36,0.55) 0%, rgba(80,120,140,0.12) 38%, rgba(8,20,28,0.45) 72%, rgba(4,12,18,0.88) 100%)",
+    vignetteIntensity: 0.48,
+    fontScale: 1.02,
+    captionAlignment: "left",
+    bottomFadeOpacity: 0.84,
+    accentLineWidth: 36,
+    visual: {
+      overlayIntensity: 0.7,
+      captionDensity: "balanced",
+      imageContrast: 1.03,
+      imageSaturation: 0.98,
+      grainOpacity: 0.05,
+      glowStrength: 0.22,
+      badgeStyle: "elegant",
+      motionFeel: "slow",
+    },
+  },
+  {
+    id: "relationship-story",
+    name: "Relationship Story",
+    category: "Emotional Editorial",
+    badgeText: "Story",
+    accentColor: "#e8b4a0",
+    overlayGradient:
+      "linear-gradient(180deg, rgba(255,248,240,0.14) 0%, transparent 30%, transparent 60%, rgba(24,14,10,0.38) 100%)",
+    vignetteIntensity: 0.24,
+    fontScale: 0.96,
+    captionAlignment: "center",
+    bottomFadeOpacity: 0.38,
+    accentLineWidth: 0,
+    visual: {
+      overlayIntensity: 0.2,
+      captionDensity: "sparse",
+      imageContrast: 1.07,
+      imageSaturation: 1.05,
+      grainOpacity: 0.02,
+      glowStrength: 0.14,
+      badgeStyle: "comic-sticker",
+      motionFeel: "editorial",
+    },
+  },
+  {
     id: "doodle-story",
-    name: "Doodle Café Stories",
+    name: "Doodle Café",
     category: "Emotional Editorial",
     description:
       "AI art-directed café storytelling — real food photos with generated hand-drawn overlay layers",
@@ -244,7 +293,7 @@ export function getTemplateId(templateIdOrName: string): TemplateId {
 export function isRichRelationshipTemplate(
   templateId: string | undefined
 ): boolean {
-  return templateId === "rich-relationship";
+  return templateId === "rich-relationship" || templateId === "relationship-story";
 }
 
 export function isDoodleStoryTemplate(
@@ -258,6 +307,8 @@ export function isEditorialCarouselTemplate(
   templateId: string | undefined
 ): boolean {
   return (
-    templateId === "rich-relationship" || templateId === "doodle-story"
+    templateId === "rich-relationship" ||
+    templateId === "relationship-story" ||
+    templateId === "doodle-story"
   );
 }

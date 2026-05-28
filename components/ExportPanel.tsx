@@ -45,7 +45,7 @@ import { shouldShowToast } from "@/lib/toastCoordinator";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
+import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { TemplateId } from "@/lib/templates";
 import { parseExportFormat } from "@/lib/validation";
 
@@ -62,7 +62,7 @@ type ExportPanelProps = {
   storyMood?: string;
   styleReference?: StyleReference | null;
   styleVision?: StyleVisionResult | null;
-  getAiDesign?: (slideIndex: number) => AiSlideDesign | null;
+  getArtDirection?: (slideIndex: number) => SlideArtDirection | null;
 };
 
 function ExportPanel({
@@ -78,7 +78,7 @@ function ExportPanel({
   storyMood,
   styleReference,
   styleVision,
-  getAiDesign,
+  getArtDirection,
 }: ExportPanelProps) {
   const [format, setFormat] = useState<ExportFormat>("jpeg");
   const [historyRefresh, setHistoryRefresh] = useState(0);
@@ -435,7 +435,8 @@ function ExportPanel({
                     storyMood={storyMood}
                     styleReference={styleReference}
                     styleVision={styleVision}
-                    aiDesign={getAiDesign?.(i + 1) ?? null}
+                    artDirection={getArtDirection?.(i + 1) ?? null}
+                    aiDesign={getArtDirection?.(i + 1)?.aiOverlay ?? null}
                   />
                 </div>
               </div>

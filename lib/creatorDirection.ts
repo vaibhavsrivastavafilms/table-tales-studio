@@ -1,4 +1,5 @@
 import type { PlatformModeId } from "@/lib/platformModes";
+import type { ViralHookMode } from "@/lib/viralHooks";
 import type { CaptionDensityPref } from "@/lib/directorProfile";
 
 export type StoryGoal =
@@ -90,6 +91,12 @@ export function hookIntensityFromBalance(
   if (viralityBalance >= 70) return "viral";
   if (viralityBalance <= 30) return "soft";
   return "balanced";
+}
+
+export function viralModeFromBalance(viralityBalance: number): ViralHookMode {
+  if (viralityBalance >= 70) return "viral";
+  if (viralityBalance <= 30) return "emotional";
+  return "aesthetic";
 }
 
 export function pacingFromEnergy(energy: number): "slow-burn" | "dynamic" | "high-retention" {

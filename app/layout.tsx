@@ -16,9 +16,9 @@ const geistMono = Geist_Mono({
 const appUrl = getAppUrl();
 
 export const metadata: Metadata = {
-  title: "Table Tales Studio — AI Food Carousel Creator",
+  title: "Table Tales Studio — AI Carousel Builder",
   description:
-    "Create cinematic Instagram food storytelling carousels with AI captions and production-ready export.",
+    "Upload food photos and art-direct a cinematic Pinterest-quality carousel — layouts, doodles, typography, export.",
   metadataBase: appUrl ? new URL(appUrl) : undefined,
   openGraph: {
     title: "Table Tales Studio",
