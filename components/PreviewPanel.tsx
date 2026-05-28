@@ -1,72 +1,87 @@
 "use client";
 
-import { type MutableRefObject } from "react";
+import { memo, useMemo, type MutableRefObject } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
+import EmptyState from "@/components/EmptyState";
 import { SLIDE_COUNT, SLIDE_KEYS, type Captions } from "@/lib/slides";
+import type { TemplateId } from "@/lib/templates";
 
 type PreviewPanelProps = {
   images: string[];
   captions: Captions;
-  template?: string;
+  templateId: TemplateId;
   slideRefs: MutableRefObject<(HTMLElement | null)[]>;
 };
 
-export default function PreviewPanel({
+function PreviewPanel({
   images,
   captions,
-  template = "Street Food",
+  templateId,
   slideRefs,
 }: PreviewPanelProps) {
+  const slides = useMemo(
+    () =>
+      SLIDE_KEYS.map((key, i) => ({
+        key,
+        image: images[i] ?? images[images.length - 1] ?? images[0] ?? "",
+        text: captions[key],
+        index: i + 1,
+      })),
+    [images, captions]
+  );
+
   return (
-    <section className="flex flex-col rounded-[40px] bg-[#0b0f1a] p-6 ring-1 ring-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-      <header className="mb-5 shrink-0">
+    <section className="preview-glow flex min-w-0 flex-col overflow-hidden rounded-[28px] bg-[#0b0f1a] p-4 ring-1 ring-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] md:rounded-[40px] md:p-6">
+      <header className="mb-4 shrink-0 md:mb-5">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#f7c600]">
           Stitched Preview
         </p>
-        <h2 className="mt-1 text-3xl font-bold leading-tight text-white">
-          Carousel
-          <br />
-          Preview
+        <h2 className="mt-1 text-2xl font-bold leading-tight text-white md:text-3xl">
+          Carousel Preview
         </h2>
-        <p className="mt-2 text-sm text-zinc-500">
-          {SLIDE_COUNT} slides · 4:5 · 1080×1350 export
+        <p className="mt-2 text-xs text-zinc-500 md:text-sm">
+          {SLIDE_COUNT} slides · 4:5 · 2× export
         </p>
       </header>
 
-      <div className="relative">
-        <div
-          className="carousel-scroll flex gap-3 overflow-x-auto overflow-y-hidden pb-4 pr-2 scroll-smooth snap-x snap-mandatory"
-          style={{ scrollbarGutter: "stable" }}
-        >
-          {SLIDE_KEYS.map((key, i) => {
-            const image =
-              images[i] ?? images[images.length - 1] ?? images[0] ?? "";
-
-            return (
-              <div key={key} className="shrink-0 snap-center">
+      {images.length === 0 ? (
+        <EmptyState
+          title="Preview empty"
+          description="Upload images to see your stitched Instagram carousel."
+        />
+      ) : (
+        <div className="relative min-w-0">
+          <div
+            className="carousel-scroll -mx-1 flex gap-3 overflow-x-auto overflow-y-hidden overscroll-x-contain px-1 pb-4 scroll-smooth snap-x snap-mandatory touch-pan-x"
+            style={{ scrollbarGutter: "stable" }}
+          >
+            {slides.map((slide, i) => (
+              <div key={slide.key} className="shrink-0 snap-center">
                 <CarouselSlide
                   ref={(el) => {
                     slideRefs.current[i] = el;
                   }}
-                  image={image}
-                  text={captions[key]}
-                  index={i + 1}
-                  template={template}
+                  image={slide.image}
+                  text={slide.text}
+                  index={slide.index}
+                  templateId={templateId}
                 />
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
 
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[#0b0f1a] to-transparent"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-[#0b0f1a] to-transparent"
-          aria-hidden
-        />
-      </div>
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-[#0b0f1a] to-transparent md:w-8"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#0b0f1a] to-transparent md:w-12"
+            aria-hidden
+          />
+        </div>
+      )}
     </section>
   );
 }
+
+export default memo(PreviewPanel);
