@@ -370,6 +370,144 @@ body {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
 }
 
+/* Generation progress */
+.builder-gen-pulse {
+  animation: builder-gen-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(244, 196, 48, 0.55);
+}
+
+@keyframes builder-gen-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.92);
+  }
+}
+
+.builder-gen-shimmer {
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(244, 196, 48, 0.35) 45%,
+    transparent 55%
+  );
+  background-size: 200% 100%;
+  animation: builder-gen-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes builder-gen-shimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -40% 0;
+  }
+}
+
+.builder-thumb-queued {
+  opacity: 0.42;
+  filter: grayscale(0.85) blur(0.5px);
+}
+
+.builder-thumb-generating {
+  opacity: 0.72;
+  filter: grayscale(0.35) blur(1px);
+}
+
+.builder-thumb-rendered {
+  opacity: 1;
+  filter: none;
+}
+
+.builder-thumb-shimmer {
+  position: relative;
+}
+
+.builder-thumb-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgba(244, 196, 48, 0.35);
+  animation: builder-thumb-glow 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes builder-thumb-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.builder-hero-reveal {
+  transition:
+    opacity 0.55s ease,
+    filter 0.65s ease,
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.builder-hero-reveal.is-building {
+  opacity: 0.88;
+  filter: blur(2px) saturate(0.92);
+  transform: scale(0.98);
+}
+
+.builder-hero-reveal.is-ready {
+  opacity: 1;
+  filter: none;
+  transform: scale(1);
+}
+
+.builder-hero-enhancing {
+  filter: blur(1.5px) saturate(0.94);
+  transform: scale(0.99);
+}
+
+.builder-grid-reveal {
+  transition:
+    opacity 0.45s ease,
+    filter 0.5s ease;
+}
+
+.builder-grid-reveal.is-queued {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+}
+
+.builder-grid-reveal.is-generating {
+  opacity: 0.7;
+  filter: grayscale(0.4) blur(0.6px);
+}
+
+.builder-grid-reveal.is-rendered {
+  opacity: 1;
+  filter: none;
+}
+
+.builder-empty-frame {
+  animation: builder-empty-breathe 3.2s ease-in-out infinite;
+}
+
+@keyframes builder-empty-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+    box-shadow: 0 0 0 rgba(244, 196, 48, 0);
+  }
+  50% {
+    opacity: 0.65;
+    box-shadow: 0 0 12px rgba(244, 196, 48, 0.08);
+  }
+}
+
 /* Legacy studio aliases */
 .studio-root {
   --studio-accent: #f4c430;

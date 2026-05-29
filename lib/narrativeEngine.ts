@@ -20,6 +20,7 @@ import { generateRichRelationshipNarrative } from "@/lib/richRelationshipNarrati
 import { generateDoodleStoryNarrative } from "@/lib/doodleStoryNarrative";
 import { isDoodleStoryTemplate, isRichRelationshipTemplate } from "@/lib/templates";
 import { enhanceHookLocally } from "@/lib/viralHooks";
+import { guardCaptions } from "@/lib/creativeGuardrails";
 
 export type GeneratedNarrative = {
   hook: string;
@@ -141,11 +142,12 @@ export function generateNarrative(input: {
       doodle.captions.hook = hookPattern.trim();
       doodle.hook = hookPattern.trim();
     }
+    const captions = guardCaptions(doodle.captions);
     return {
-      hook: doodle.hook,
-      slides: doodle.slides,
-      cta: doodle.cta,
-      captions: doodle.captions,
+      hook: captions.hook,
+      slides: [captions.slide1, captions.slide2, captions.slide3, captions.slide4],
+      cta: captions.cta,
+      captions,
     };
   }
 
@@ -158,11 +160,12 @@ export function generateNarrative(input: {
       rich.captions.hook = hookPattern.trim();
       rich.hook = hookPattern.trim();
     }
+    const captions = guardCaptions(rich.captions);
     return {
-      hook: rich.hook,
-      slides: rich.slides,
-      cta: rich.cta,
-      captions: rich.captions,
+      hook: captions.hook,
+      slides: [captions.slide1, captions.slide2, captions.slide3, captions.slide4],
+      cta: captions.cta,
+      captions,
     };
   }
 
@@ -202,6 +205,7 @@ export function generateNarrative(input: {
     profile.hookIntensity
   );
   captions = optimizeCarouselFlow(captions, flowDensity);
+  captions = guardCaptions(captions);
 
   return {
     hook: captions.hook,

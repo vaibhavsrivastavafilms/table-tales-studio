@@ -8,6 +8,8 @@ import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import { VIRAL_HOOK_MODES, type ViralHookMode } from "@/lib/viralHooks";
 import { TEMPLATE_LIST, type TemplateId } from "@/lib/templates";
+import UploadStatusBanner from "@/components/upload/UploadStatusBanner";
+import type { UploadUiPhase } from "@/lib/uploadState";
 
 type UploadPanelProps = {
   images: string[];
@@ -25,6 +27,9 @@ type UploadPanelProps = {
   onGenerate: () => void;
   isGenerating: boolean;
   isUploading: boolean;
+  uploadPhase?: UploadUiPhase;
+  uploadError?: string | null;
+  onRetryUpload?: () => void;
 };
 
 function UploadPanel({
@@ -43,6 +48,9 @@ function UploadPanel({
   onGenerate,
   isGenerating,
   isUploading,
+  uploadPhase = "idle",
+  uploadError,
+  onRetryUpload,
 }: UploadPanelProps) {
   return (
     <section className="panel-ambient min-w-0 rounded-[28px] bg-[#0b0f1a] p-5 ring-1 ring-white/5 transition-shadow duration-300 hover:shadow-[0_0_48px_rgba(0,0,0,0.2)] md:rounded-[40px] md:p-8">
@@ -130,10 +138,13 @@ function UploadPanel({
         />
       </label>
 
-      {isUploading && (
-        <div className="mb-6 overflow-hidden rounded-xl bg-zinc-900">
-          <div className="h-1.5 w-full animate-pulse bg-gradient-to-r from-[#f7c600]/20 via-[#f7c600] to-[#f7c600]/20" />
-          <p className="px-4 py-2 text-xs text-zinc-400">Processing uploads…</p>
+      {(uploadPhase !== "idle" || uploadError) && (
+        <div className="mb-6">
+          <UploadStatusBanner
+            phase={uploadPhase}
+            errorMessage={uploadError}
+            onRetry={onRetryUpload}
+          />
         </div>
       )}
 

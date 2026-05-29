@@ -7,6 +7,8 @@ import { BUILDER_TONES, type BuilderToneId } from "@/lib/builderTone";
 import type { TemplateId } from "@/lib/templates";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
+import UploadStatusBanner from "@/components/upload/UploadStatusBanner";
+import type { UploadUiPhase } from "@/lib/uploadState";
 
 type BuilderInputPanelProps = {
   templateId: TemplateId;
@@ -27,6 +29,9 @@ type BuilderInputPanelProps = {
   onGenerate: () => void;
   isGenerating: boolean;
   isUploading: boolean;
+  uploadPhase?: UploadUiPhase;
+  uploadError?: string | null;
+  onRetryUpload?: () => void;
   disabled?: boolean;
 };
 
@@ -49,6 +54,9 @@ function BuilderInputPanel({
   onGenerate,
   isGenerating,
   isUploading,
+  uploadPhase = "idle",
+  uploadError,
+  onRetryUpload,
   disabled,
 }: BuilderInputPanelProps) {
   const [dragOver, setDragOver] = useState(false);
@@ -122,6 +130,11 @@ function BuilderInputPanel({
           <p className="text-sm font-medium text-zinc-300">Drag & drop food photos</p>
           <p className="mt-1 text-[11px] text-zinc-600">or click to browse · up to 6</p>
         </div>
+        <UploadStatusBanner
+          phase={uploadPhase}
+          errorMessage={uploadError}
+          onRetry={onRetryUpload}
+        />
         {images.length > 0 && (
           <ul className="mt-3 grid grid-cols-3 gap-1.5">
             {images.slice(0, 6).map((src, i) => (

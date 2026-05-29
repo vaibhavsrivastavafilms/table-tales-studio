@@ -18,13 +18,20 @@ export function validateServerEnv(): {
   openai: boolean;
   supabase: boolean;
   appUrl: string;
+  missingPublic: string[];
 } {
+  const missingPublic: string[] = [];
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()) {
+    missingPublic.push("NEXT_PUBLIC_SUPABASE_URL");
+  }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()) {
+    missingPublic.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
+
   return {
     openai: hasOpenAiKey(),
-    supabase: Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
-    ),
+    supabase: missingPublic.length === 0,
     appUrl: getAppUrl(),
+    missingPublic,
   };
 }

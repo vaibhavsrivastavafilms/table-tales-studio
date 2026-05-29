@@ -3,19 +3,10 @@
 import { memo } from "react";
 
 type BuilderTopBarProps = {
-  pipelineStatus?: "idle" | "loading" | "ready" | "partial" | "fallback";
+  carouselReady?: boolean;
 };
 
-function BuilderTopBar({ pipelineStatus = "idle" }: BuilderTopBarProps) {
-  const statusText =
-    pipelineStatus === "loading"
-      ? "Composing carousel…"
-      : pipelineStatus === "ready"
-        ? "Art direction applied"
-        : pipelineStatus === "partial"
-          ? "Partial AI overlays"
-          : null;
-
+function BuilderTopBar({ carouselReady = false }: BuilderTopBarProps) {
   return (
     <header className="builder-topbar flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-2.5 md:px-6">
       <div className="flex items-center gap-2.5">
@@ -29,18 +20,12 @@ function BuilderTopBar({ pipelineStatus = "idle" }: BuilderTopBarProps) {
           <p className="text-sm font-bold tracking-tight text-white">
             Table Tales Studio
           </p>
-          <p className="text-[10px] text-zinc-600">
-            AI carousel director
-          </p>
+          <p className="text-[10px] text-zinc-600">AI carousel director</p>
         </div>
       </div>
-      {statusText && (
-        <p
-          className={`text-[10px] font-semibold uppercase tracking-wider ${
-            pipelineStatus === "loading" ? "text-[#f4c430]" : "text-zinc-500"
-          }`}
-        >
-          {statusText}
+      {carouselReady && (
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+          Ready
         </p>
       )}
     </header>

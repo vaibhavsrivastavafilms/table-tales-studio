@@ -14,6 +14,7 @@ import {
   updateProject,
   type Project,
 } from "@/lib/projects";
+import { formatTimestampNeutral } from "@/lib/formatTimestamp";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { TEMPLATE_LIST } from "@/lib/templates";
 import CreatorAnalyticsCard from "@/components/CreatorAnalyticsCard";
@@ -272,7 +273,7 @@ export default function ProjectsHome() {
                       className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#f7c600]/40"
                     />
                     <p className="mt-1 text-xs text-zinc-500">
-                      Updated {new Date(project.updatedAt).toLocaleString()}
+                      Updated {formatTimestampNeutral(project.updatedAt)}
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Link

@@ -14,6 +14,8 @@ export type VisualHierarchy = {
   doodleEmphasis: number;
   photoEmphasis: number;
   focalPoint: { x: number; y: number };
+  typeLayers: HierarchyLayer[];
+  cutoutEmphasis: number;
 };
 
 export function buildVisualHierarchy(
@@ -33,11 +35,19 @@ export function buildVisualHierarchy(
     { id: "stickers", zIndex: 18, opacity: emotional.stickerEnergy, emphasis: 0.7 },
   ];
 
+  const typeLayers: HierarchyLayer[] = [
+    { id: "hero-type", zIndex: 24, opacity: 1, emphasis: emotional.typographyScale * 1.2 },
+    { id: "micro-type", zIndex: 23, opacity: 0.75, emphasis: 0.45 },
+    { id: "script-type", zIndex: 25, opacity: 0.9, emphasis: 0.65 },
+  ];
+
   return {
     layers,
     captionEmphasis: emotional.typographyScale,
     doodleEmphasis: emotional.doodleDensity,
     photoEmphasis: 1,
     focalPoint,
+    typeLayers,
+    cutoutEmphasis: layout.variant === "image-hero" ? 1.1 : 0.95,
   };
 }

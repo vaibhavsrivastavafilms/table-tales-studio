@@ -2,14 +2,16 @@
 
 import { memo, useMemo, type MutableRefObject } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
-import EmptyState from "@/components/EmptyState";
+import BuilderEmptyWorkspace from "@/components/builder/BuilderEmptyWorkspace";
 import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
+import { useRenderDiagnostic, slideStatesKey } from "@/lib/renderProfiler";
 import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { SlideEditorPrefs } from "@/lib/slideEditorPrefs";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import type { TemplateId } from "@/lib/templates";
+import type { SlideRenderState } from "@/lib/generationStages";
 
 type BuilderPreviewProps = {
   images: string[];
@@ -25,8 +27,17 @@ type BuilderPreviewProps = {
   styleVision?: StyleVisionResult | null;
   getArtDirection?: (slideIndex: number) => SlideArtDirection | null;
   getSlidePrefs?: (slideIndex: number) => SlideEditorPrefs;
-  pipelineStatus?: "idle" | "loading" | "ready" | "partial" | "fallback";
+  isGenerating?: boolean;
+  slideStates?: Map<number, SlideRenderState>;
+  enhancingSlideIndex?: number | null;
+  directionsVersion?: number;
 };
+
+function thumbRevealClass(state: SlideRenderState | undefined): string {
+  if (state === "rendered") return "builder-grid-reveal is-rendered";
+  if (state === "generating") return "builder-grid-reveal is-generating";
+  return "builder-grid-reveal is-queued";
+}
 
 function BuilderPreview({
   images,
@@ -42,8 +53,13 @@ function BuilderPreview({
   styleVision,
   getArtDirection,
   getSlidePrefs,
-  pipelineStatus = "idle",
+  isGenerating = false,
+  slideStates,
+  enhancingSlideIndex = null,
+  directionsVersion = 0,
 }: BuilderPreviewProps) {
+  useRenderDiagnostic("BuilderPreview");
+
   const watermark = resolveWatermarkText(
     brandKit ?? DEFAULT_BRAND_KIT,
     showWatermark ?? false
@@ -60,7 +76,23 @@ function BuilderPreview({
     [images, captions]
   );
 
+  const artBySlide = useMemo(() => {
+    const map = new Map<number, SlideArtDirection | null>();
+    if (!getArtDirection) return map;
+    for (let i = 1; i <= slides.length; i++) {
+      map.set(i, getArtDirection(i));
+    }
+    return map;
+    // directionsVersion bumps when art direction map changes
+  }, [getArtDirection, directionsVersion, slides.length]);
+
   const selected = slides[selectedIndex] ?? slides[0];
+  const selectedArt = artBySlide.get(selected.index) ?? null;
+  const selectedState = slideStates?.get(selected.index);
+  const isEnhancingThis = enhancingSlideIndex === selected.index;
+  const heroReady =
+    (!isGenerating || selectedState === "rendered") && !isEnhancingThis;
+
   const slideProps = (slide: (typeof slides)[0]) => ({
     image: slide.image,
     text: slide.text,
@@ -71,57 +103,26 @@ function BuilderPreview({
     storyMood,
     styleReference,
     styleVision,
-    artDirection: getArtDirection?.(slide.index) ?? null,
-    aiDesign: getArtDirection?.(slide.index)?.aiOverlay ?? null,
+    artDirection: artBySlide.get(slide.index) ?? null,
+    aiDesign: artBySlide.get(slide.index)?.aiOverlay ?? null,
     slidePrefs: getSlidePrefs?.(slide.index),
   });
-
-  const statusLabel =
-    pipelineStatus === "loading"
-      ? "Art directing…"
-      : pipelineStatus === "ready"
-        ? "Carousel ready"
-        : pipelineStatus === "partial"
-          ? "Partial AI layers"
-          : pipelineStatus === "fallback"
-            ? "Procedural art direction"
-            : null;
 
   return (
     <section className="builder-preview flex min-h-0 flex-1 flex-col">
       {images.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center p-6">
-          <EmptyState
-            icon="◈"
-            title="Upload food photos to begin"
-            description="AI will redesign layout, typography, doodles, and emotional pacing — no templates, just art direction."
-          />
-        </div>
+        <BuilderEmptyWorkspace />
       ) : (
         <>
           <div className="flex shrink-0 items-center justify-between px-4 pt-4 md:px-6">
             <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">
               Live storyboard
             </p>
-            <div className="flex items-center gap-2">
-              {statusLabel && (
-                <span
-                  className={`text-[10px] font-semibold uppercase tracking-wider ${
-                    pipelineStatus === "loading"
-                      ? "text-[#f4c430] studio-shimmer"
-                      : "text-zinc-500"
-                  }`}
-                >
-                  {statusLabel}
-                </span>
-              )}
-              <span className="text-xs font-semibold text-[#f4c430]">
-                Slide {selectedIndex + 1}
-              </span>
-            </div>
+            <span className="text-xs font-semibold text-[#f4c430]">
+              Slide {selectedIndex + 1}
+            </span>
           </div>
 
-          {/* Off-screen slides — export capture targets (preview parity) */}
           <div className="builder-export-rack" aria-hidden>
             {slides.map((slide, i) => (
               <CarouselSlide
@@ -135,7 +136,11 @@ function BuilderPreview({
           </div>
 
           <div className="builder-stage flex min-h-0 flex-1 items-center justify-center px-4 py-2 md:px-8">
-            <div className="builder-hero-wrap art-motion-float">
+            <div
+              className={`builder-hero-wrap builder-hero-reveal ${
+                heroReady ? "is-ready art-motion-float" : "is-building"
+              } ${isEnhancingThis ? "builder-hero-enhancing" : ""}`}
+            >
               <CarouselSlide key={`hero-${selected.key}`} {...slideProps(selected)} />
             </div>
           </div>
@@ -146,7 +151,7 @@ function BuilderPreview({
             </p>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               {slides.map((slide, i) => {
-                const art = getArtDirection?.(slide.index);
+                const state = slideStates?.get(slide.index);
                 const active = i === selectedIndex;
                 return (
                   <button
@@ -156,8 +161,8 @@ function BuilderPreview({
                     className={`builder-grid-cell relative overflow-hidden rounded-xl transition-all duration-300 ${
                       active
                         ? "ring-2 ring-[#f4c430]"
-                        : "ring-1 ring-white/10 opacity-70 hover:opacity-100"
-                    }`}
+                        : "ring-1 ring-white/10"
+                    } ${state === "generating" ? "builder-thumb-shimmer" : ""}`}
                     aria-label={`Preview slide ${i + 1}`}
                     aria-current={active ? "true" : undefined}
                   >
@@ -166,10 +171,7 @@ function BuilderPreview({
                       <img
                         src={slide.image}
                         alt=""
-                        className="h-full w-full object-cover"
-                        style={{
-                          filter: art?.photoFilter ?? undefined,
-                        }}
+                        className={`h-full w-full object-cover ${thumbRevealClass(state)}`}
                         loading="lazy"
                         decoding="async"
                       />
@@ -187,12 +189,6 @@ function BuilderPreview({
                     >
                       {i + 1}
                     </span>
-                    {pipelineStatus === "loading" && active && (
-                      <span
-                        className="absolute inset-0 bg-black/30"
-                        aria-hidden
-                      />
-                    )}
                   </button>
                 );
               })}
@@ -204,4 +200,27 @@ function BuilderPreview({
   );
 }
 
-export default memo(BuilderPreview);
+function previewPropsEqual(
+  prev: BuilderPreviewProps,
+  next: BuilderPreviewProps
+): boolean {
+  return (
+    prev.selectedIndex === next.selectedIndex &&
+    prev.templateId === next.templateId &&
+    prev.isGenerating === next.isGenerating &&
+    prev.enhancingSlideIndex === next.enhancingSlideIndex &&
+    prev.directionsVersion === next.directionsVersion &&
+    prev.showWatermark === next.showWatermark &&
+    prev.storyMood === next.storyMood &&
+    prev.images === next.images &&
+    prev.captions === next.captions &&
+    prev.brandKit === next.brandKit &&
+    prev.styleReference === next.styleReference &&
+    prev.styleVision === next.styleVision &&
+    prev.getArtDirection === next.getArtDirection &&
+    prev.getSlidePrefs === next.getSlidePrefs &&
+    slideStatesKey(prev.slideStates) === slideStatesKey(next.slideStates)
+  );
+}
+
+export default memo(BuilderPreview, previewPropsEqual);

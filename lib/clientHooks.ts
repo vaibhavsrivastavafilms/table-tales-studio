@@ -20,6 +20,10 @@ function noopSubscribe(): () => void {
   return () => {};
 }
 
+function getServerOnboardingSnapshot(): boolean {
+  return !SERVER_MEMORY.onboardingComplete;
+}
+
 function getOnboardingSnapshot(): boolean {
   return !getCreatorMemorySnapshot().onboardingComplete;
 }
@@ -47,7 +51,7 @@ export function useNeedsOnboarding(): boolean {
   return useSyncExternalStore(
     subscribeCreatorMemory,
     getOnboardingSnapshot,
-    () => false
+    getServerOnboardingSnapshot
   );
 }
 

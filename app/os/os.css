@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Table Tales OS — hospitality design tokens */
+.os-root {
+  --os-accent: #f4c430;
+  --os-accent-hover: #ffe566;
+  --os-accent-fg: #0a0a0c;
+  --os-bg: #060608;
+  --os-bg-subtle: #0a0a0c;
+  --os-sidebar: #08080a;
+  --os-surface: #0f0f12;
+  --os-surface-elevated: #141418;
+  --os-surface-hover: #1a1a20;
+  --os-fg: #fafafa;
+  --os-fg-muted: #a1a1aa;
+  --os-fg-subtle: #71717a;
+  --os-border: rgba(255, 255, 255, 0.06);
+  --os-border-strong: rgba(255, 255, 255, 0.12);
+  --os-cream: #faf6ee;
+  --os-espresso: #1a1510;
+  --os-glow: rgba(244, 196, 48, 0.15);
+}
+
+.os-root[data-theme="light"] {
+  --os-accent: #e5b020;
+  --os-accent-hover: #f4c430;
+  --os-accent-fg: #0a0a0c;
+  --os-bg: #faf8f4;
+  --os-bg-subtle: #f5f0e8;
+  --os-sidebar: #fffdf8;
+  --os-surface: #ffffff;
+  --os-surface-elevated: #faf6ee;
+  --os-surface-hover: #f0ebe3;
+  --os-fg: #1a1510;
+  --os-fg-muted: #5c5348;
+  --os-fg-subtle: #8a8178;
+  --os-border: rgba(26, 21, 16, 0.08);
+  --os-border-strong: rgba(26, 21, 16, 0.14);
+  --os-glow: rgba(229, 176, 32, 0.12);
+}
+
+.os-root {
+  background: var(--os-bg);
+  color: var(--os-fg);
+  min-height: 100dvh;
+}
+
+.os-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--os-border-strong) transparent;
+}
+
+.os-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.os-scroll::-webkit-scrollbar-thumb {
+  background: var(--os-border-strong);
+  border-radius: 999px;
+}
+
+.os-card {
+  border: 1px solid var(--os-border);
+  background: var(--os-surface);
+  border-radius: 1rem;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+}
+
+.os-root[data-theme="light"] .os-card {
+  box-shadow: 0 1px 2px rgba(26, 21, 16, 0.04);
+}
+
+.os-nav-active {
+  background: linear-gradient(
+    90deg,
+    rgba(244, 196, 48, 0.14) 0%,
+    rgba(244, 196, 48, 0.04) 100%
+  );
+  border-left: 2px solid var(--os-accent);
+  color: var(--os-fg);
+}
+
+.os-root[data-theme="light"] .os-nav-active {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 176, 32, 0.12) 0%,
+    transparent 100%
+  );
+}

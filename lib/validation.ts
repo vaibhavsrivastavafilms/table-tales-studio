@@ -1,3 +1,4 @@
+import { guardCaptions } from "@/lib/creativeGuardrails";
 import type { Captions } from "@/lib/slides";
 import { SLIDE_KEYS } from "@/lib/slides";
 import { getTemplateId, type TemplateId } from "@/lib/templates";
@@ -9,7 +10,7 @@ export const LIMITS = {
   captionsJsonMax: 12_000,
   templateNameMax: 80,
   projectImagesMax: 10,
-  uploadMaxBytes: 8 * 1024 * 1024,
+  uploadMaxBytes: 15 * 1024 * 1024,
   uploadMaxFiles: 10,
   jsonBodyMaxBytes: 32_000,
   exportZipMaxBytes: 80 * 1024 * 1024,
@@ -83,7 +84,7 @@ export function sanitizeCaptions(input: unknown): Captions {
       base[key] = sanitizeCaptionField(record[key]);
     }
   }
-  return base;
+  return guardCaptions(base);
 }
 
 export function captionsPayloadSize(captions: Captions): number {
@@ -165,11 +166,37 @@ export function validateUploadFiles(files: File[]): UploadValidationResult {
   return { ok: true, files: accepted };
 }
 
+export function isAllowedUploadMime(mime: string): boolean {
+  const normalized = mime.toLowerCase();
+  if (!normalized) return true;
+  return ALLOWED_IMAGE_MIME.has(normalized);
+}
+
+export function isValidBase64DataUrl(value: string): boolean {
+  if (!value.startsWith("data:")) return false;
+  const comma = value.indexOf(",");
+  if (comma < 0) return false;
+  const header = value.slice(0, comma);
+  const payload = value.slice(comma + 1).trim();
+  if (!payload.length) return false;
+  if (!/^data:image\/(jpeg|jpg|png|webp);base64$/i.test(header.split(";")[0] ?? "")) {
+    return /^data:image\//i.test(header) && header.includes("base64");
+  }
+  if (payload.length % 4 !== 0) return false;
+  return /^[A-Za-z0-9+/]+=*$/.test(payload);
+}
+
 export function validateStorageBlob(blob: Blob): boolean {
   if (blob.size === 0 || blob.size > LIMITS.uploadMaxBytes * 2) return false;
   const type = (blob.type || "").toLowerCase();
   if (!type) return true;
   return type === "image/jpeg" || type === "image/png" || type === "application/zip";
+}
+
+export function assertNonEmptyBlob(blob: Blob, label: string): void {
+  if (blob.size === 0) {
+    throw new Error(`Empty ${label} after processing`);
+  }
 }
 
 export function clampImageCount(value: unknown): number {

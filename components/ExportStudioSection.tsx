@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useState } from "react";
+import { formatTimestampNeutral } from "@/lib/formatTimestamp";
 import { useIsClient } from "@/lib/clientHooks";
 import {
   DEFAULT_EXPORT_PRESETS,
@@ -28,11 +29,15 @@ function ExportStudioSection({
   const isClient = useIsClient();
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [loadedPreset, setLoadedPreset] = useState<ExportPreset>(
+    DEFAULT_EXPORT_PRESETS[0]
+  );
+  const [history, setHistory] = useState<ExportHistoryEntry[]>([]);
 
-  const loadedPreset = useMemo(() => {
-    if (!isClient) return DEFAULT_EXPORT_PRESETS[0];
-    void refreshKey;
-    return loadActiveExportPreset();
+  useEffect(() => {
+    if (!isClient) return;
+    setLoadedPreset(loadActiveExportPreset());
+    setHistory(loadExportHistory());
   }, [isClient, refreshKey]);
 
   const preset =
@@ -40,12 +45,6 @@ function ExportStudioSection({
       ? (DEFAULT_EXPORT_PRESETS.find((p) => p.id === selectedPresetId) ??
         loadedPreset)
       : loadedPreset;
-
-  const history = useMemo((): ExportHistoryEntry[] => {
-    if (!isClient) return [];
-    void refreshKey;
-    return loadExportHistory();
-  }, [isClient, refreshKey]);
 
   const selectPreset = (id: string) => {
     const next = saveActiveExportPreset(id);
@@ -132,7 +131,7 @@ function ExportStudioSection({
           <ul className="max-h-28 space-y-1 overflow-y-auto text-xs text-zinc-500">
             {history.slice(0, 5).map((h) => (
               <li key={h.id}>
-                {new Date(h.at).toLocaleString()} · {h.slideCount} slides ·{" "}
+                {formatTimestampNeutral(h.at)} · {h.slideCount} slides ·{" "}
                 {h.format}
                 {h.presetName ? ` · ${h.presetName}` : ""}
               </li>

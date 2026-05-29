@@ -6,8 +6,10 @@ import {
   exportSingleSlide,
   type ExportFormat,
 } from "@/lib/exportSlides";
+import { waitForAllSlideAssets } from "@/lib/exportAssetReady";
 import { acquireExportLock, releaseExportLock } from "@/lib/exportSession";
 import { canExport, recordExportUsage } from "@/lib/usage";
+import type { ExportGenerationStage } from "@/lib/generationStages";
 import type { MutableRefObject } from "react";
 
 type BuilderExportStripProps = {
@@ -16,6 +18,11 @@ type BuilderExportStripProps = {
   onToast: (message: string, variant?: "success" | "error") => void;
   onComplete?: (format: string) => void;
   disabled?: boolean;
+  onExportProgress?: (
+    active: boolean,
+    stage: ExportGenerationStage,
+    slideRatio: number
+  ) => void;
 };
 
 function BuilderExportStrip({
@@ -24,9 +31,17 @@ function BuilderExportStrip({
   onToast,
   onComplete,
   disabled,
+  onExportProgress,
 }: BuilderExportStripProps) {
   const [format, setFormat] = useState<ExportFormat | "zip">("zip");
   const [busy, setBusy] = useState(false);
+
+  const report = useCallback(
+    (active: boolean, stage: ExportGenerationStage, slideRatio: number) => {
+      onExportProgress?.(active, stage, slideRatio);
+    },
+    [onExportProgress]
+  );
 
   const runExport = useCallback(async () => {
     const usage = canExport();
@@ -41,25 +56,38 @@ function BuilderExportStrip({
     }
 
     setBusy(true);
+    report(true, "preparing", 0);
     try {
+      await waitForAllSlideAssets(slideRefs.current);
       if (format === "zip") {
-        await exportAllSlides(slideRefs.current, { format: "jpeg" });
+        const total = slideRefs.current.filter(Boolean).length || 6;
+        await exportAllSlides(slideRefs.current, {
+          format: "jpeg",
+          expectedTotal: total,
+          onProgress: (p) => {
+            report(true, "rendering", p.current / Math.max(1, p.total));
+          },
+          onPackaging: () => report(true, "packaging", 0.92),
+        });
         onComplete?.("zip");
       } else {
+        report(true, "rendering", 0.5);
         const slide = slideRefs.current[selectedIndex];
         if (!slide) throw new Error("Slide not ready");
         await exportSingleSlide(slide, selectedIndex + 1, { format });
         onComplete?.(format);
       }
       recordExportUsage();
+      report(true, "done", 1);
       onToast("Export ready — check your downloads");
     } catch (err) {
       onToast(err instanceof Error ? err.message : "Export failed", "error");
     } finally {
       releaseExportLock(lock.sessionId);
       setBusy(false);
+      window.setTimeout(() => report(false, "preparing", 0), 1200);
     }
-  }, [format, onComplete, onToast, selectedIndex, slideRefs]);
+  }, [format, onComplete, onToast, report, selectedIndex, slideRefs]);
 
   const exportAll = useCallback(async () => {
     const usage = canExport();
@@ -71,18 +99,24 @@ function BuilderExportStrip({
     if (!lock.acquired) return;
 
     setBusy(true);
+    report(true, "preparing", 0);
     try {
+      await waitForAllSlideAssets(slideRefs.current);
       const fmt: ExportFormat = format === "zip" ? "jpeg" : format;
+      const total = slideRefs.current.filter(Boolean).length || 6;
       let count = 0;
       for (let i = 0; i < slideRefs.current.length; i++) {
         const el = slideRefs.current[i];
         if (el) {
+          report(true, "rendering", count / total);
           await exportSingleSlide(el, i + 1, { format: fmt });
           count += 1;
+          report(true, "rendering", count / total);
         }
       }
       if (!count) throw new Error("No slides ready");
       recordExportUsage();
+      report(true, "done", 1);
       onToast(`Exported ${count} slides`);
       onComplete?.(fmt);
     } catch (err) {
@@ -90,8 +124,9 @@ function BuilderExportStrip({
     } finally {
       releaseExportLock(lock.sessionId);
       setBusy(false);
+      window.setTimeout(() => report(false, "preparing", 0), 1200);
     }
-  }, [format, onComplete, onToast, slideRefs]);
+  }, [format, onComplete, onToast, report, slideRefs]);
 
   return (
     <section

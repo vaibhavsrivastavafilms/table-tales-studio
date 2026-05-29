@@ -1,5 +1,7 @@
 import { forwardRef, memo, useMemo } from "react";
 import DoodleStorySlide from "@/components/DoodleStorySlide";
+import EditorialLayerStack from "@/components/EditorialLayerStack";
+import EditorialTypographyBlocks from "@/components/EditorialTypographyBlocks";
 import RichRelationshipSlide from "@/components/RichRelationshipSlide";
 import {
   fontScaleForPreset,
@@ -203,7 +205,15 @@ const CarouselSlide = memo(
           />
         ) : (
           <>
-            {image ? (
+            {artDirection?.collage ? (
+              <EditorialLayerStack
+                collage={artDirection.collage}
+                editorial={artDirection.editorial}
+                width={SLIDE_WIDTH}
+                height={SLIDE_HEIGHT}
+                reveal={typeReveal}
+              />
+            ) : image ? (
               <img
                 src={image}
                 alt=""
@@ -220,6 +230,17 @@ const CarouselSlide = memo(
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-[#0b0f1a] to-black" />
+            )}
+
+            {artDirection?.redesign?.overlayUrl && !artDirection.collage?.layers.some((l) => l.type === "redesign") && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={artDirection.redesign.overlayUrl}
+                alt=""
+                className="pointer-events-none absolute inset-0 z-[12] h-full w-full object-cover mix-blend-multiply"
+                style={{ opacity: typeReveal * 0.88 }}
+                aria-hidden
+              />
             )}
 
             {artDirection?.layout?.gradientZones?.top ? (
@@ -312,41 +333,53 @@ const CarouselSlide = memo(
               </span>
             </div>
 
-            <div
-              className={`absolute inset-x-0 z-10 flex px-6 ${artDirection?.composition?.motionClass ?? ""} ${
-                captionCentered
-                  ? "inset-0 items-center justify-center py-0"
-                  : captionTop
-                    ? "top-0 pb-8 pt-14"
-                    : "bottom-0 pb-10 pt-16"
-              } ${
-                effectiveAlign === "center"
-                  ? "justify-center"
-                  : effectiveAlign === "right"
-                    ? "justify-end"
-                    : "justify-start"
-              }`}
-              style={{ opacity: typeReveal }}
-            >
-              <p
-                className={`max-w-[260px] font-bold leading-snug tracking-tight text-white ${captionAlignClass}`}
-                style={{
-                  fontSize: `${Math.round(
-                    fontSize *
-                      (artDirection?.typography?.scale ?? 1) *
-                      (slidePrefs?.typographyScale ?? 1)
-                  )}px`,
-                  textShadow:
-                    "0 2px 14px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.85)",
-                }}
+            {artDirection?.typographyPlan ? (
+              <EditorialTypographyBlocks
+                caption={text}
+                plan={artDirection.typographyPlan}
+                typography={artDirection.typography}
+                highlightColor={accent}
+                reveal={typeReveal}
+                width={SLIDE_WIDTH}
+                height={SLIDE_HEIGHT}
+              />
+            ) : (
+              <div
+                className={`absolute inset-x-0 z-10 flex px-6 ${artDirection?.composition?.motionClass ?? ""} ${
+                  captionCentered
+                    ? "inset-0 items-center justify-center py-0"
+                    : captionTop
+                      ? "top-0 pb-8 pt-14"
+                      : "bottom-0 pb-10 pt-16"
+                } ${
+                  effectiveAlign === "center"
+                    ? "justify-center"
+                    : effectiveAlign === "right"
+                      ? "justify-end"
+                      : "justify-start"
+                }`}
+                style={{ opacity: typeReveal }}
               >
-                {text || (
-                  <span className="text-sm font-medium text-white/35">
-                    Caption appears here
-                  </span>
-                )}
-              </p>
-            </div>
+                <p
+                  className={`max-w-[260px] font-bold leading-snug tracking-tight text-white ${captionAlignClass}`}
+                  style={{
+                    fontSize: `${Math.round(
+                      fontSize *
+                        (artDirection?.typography?.scale ?? 1) *
+                        (slidePrefs?.typographyScale ?? 1)
+                    )}px`,
+                    textShadow:
+                      "0 2px 14px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  {text || (
+                    <span className="text-sm font-medium text-white/35">
+                      Caption appears here
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
 
             {config.accentLineWidth > 0 && (
               <div

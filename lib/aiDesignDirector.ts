@@ -146,18 +146,39 @@ export async function runAiDesignPipeline(
     while (cursor < jobs.length) {
       if (options?.signal?.aborted) return;
       const job = jobs[cursor++];
-      const design = await generateSlideOverlay(
-        job.slideIndex,
-        job.caption,
-        input
-      );
-      out.set(job.slideIndex, design);
-      options?.onSlide?.(design);
+      try {
+        const design = await generateSlideOverlay(
+          job.slideIndex,
+          job.caption,
+          input
+        );
+        out.set(job.slideIndex, design);
+        options?.onSlide?.(design);
+      } catch (err) {
+        console.warn("[TableTales:pipeline] doodle slide failed", {
+          slideIndex: job.slideIndex,
+          message: err instanceof Error ? err.message : String(err),
+        });
+        const plan = buildSlideDesignPlan(job.slideIndex, job.caption, input);
+        out.set(job.slideIndex, { ...plan, source: "procedural" });
+      }
     }
   }
 
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, jobs.length) }, () => worker())
+  const workers = Array.from(
+    { length: Math.min(concurrency, jobs.length) },
+    () => worker()
   );
+  const settled = await Promise.allSettled(workers);
+  for (const result of settled) {
+    if (result.status === "rejected") {
+      console.warn("[TableTales:pipeline] doodle worker failed", {
+        message:
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+      });
+    }
+  }
   return out;
 }
