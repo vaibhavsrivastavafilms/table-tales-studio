@@ -136,6 +136,12 @@ import {
   pushCreativeHistory,
   type SlideCreativeSession,
 } from "@/lib/slideCreativeSession";
+import {
+  getSlideIdForIndex,
+  projectToCaptions,
+  useCarouselProjectStore,
+} from "@/lib/story-engine";
+import CarouselScorePanel from "@/components/story-engine/CarouselScorePanel";
 
 const SSR_CREATOR_MEMORY = getServerCreatorMemory();
 
@@ -231,6 +237,12 @@ export default function CarouselEditor({
   const [aiTextEnabled, setAiTextEnabled] = useState(true);
   const [builderTone, setBuilderTone] = useState<BuilderToneId>("emotional");
   const [selectedSlideIndex, setSelectedSlideIndex] = useState(0);
+  const storyProject = useCarouselProjectStore((s) => s.project);
+  const storyScore = useCarouselProjectStore((s) => s.project?.score);
+  const runStoryEngine = useCarouselProjectStore((s) => s.runGenerateStorytelling);
+  const enhanceStorySlide = useCarouselProjectStore((s) => s.enhanceSlide);
+  const patchStoryCaptions = useCarouselProjectStore((s) => s.patchCaptions);
+  const setStoryProject = useCarouselProjectStore((s) => s.setProject);
   const [slidePrefsMap, setSlidePrefsMap] = useState<
     Record<number, Partial<SlideEditorPrefs>>
   >({});
@@ -729,9 +741,15 @@ export default function CarouselEditor({
   const handleCaptionChange = useCallback(
     (key: keyof Captions, value: string) => {
       const field = guardCaptionText(sanitizeCaptionField(value));
-      setCaptions((prev) => ({ ...prev, [key]: field }));
+      setCaptions((prev) => {
+        const next = { ...prev, [key]: field };
+        if (storyProject) {
+          patchStoryCaptions(next);
+        }
+        return next;
+      });
     },
-    []
+    [storyProject, patchStoryCaptions]
   );
 
   const runGenerateStory = useCallback(async () => {
@@ -741,6 +759,54 @@ export default function CarouselEditor({
       recordPlatformMode(platformMode);
       scheduleDirectorLearning({ type: "viral_mode", mode: viralMode });
       scheduleDirectorLearning({ type: "template", templateId });
+
+      if (isStudio) {
+        const platform = getPlatformMode(platformMode);
+        const project = await runStoryEngine({
+          topic: storyBrief?.narrativeAngle ?? getTemplateConfig(templateId).name,
+          goal: "Drive engagement and brand recall through food storytelling",
+          audience: nichePreference ?? "Food lovers on Instagram",
+          platform: platform.label,
+          brand: brandKit.brandName?.trim() || brandKit.brandCta?.trim() || undefined,
+          templateName: getTemplateConfig(templateId).name,
+          imageCount: images.length || 6,
+          visualSummary: storyBrief ? formatVisualSummary(storyBrief) : undefined,
+          viralMode,
+          captionTone: creatorMem.captionTone,
+        });
+        if (project) {
+          setStoryProject(project);
+          const nextCaptions = projectToCaptions(project);
+          if (nextCaptions.hook.trim()) {
+            nextCaptions.hook = enhanceHookLocally(nextCaptions.hook, viralMode);
+          }
+          if (!nextCaptions.cta.trim() && brandKit.brandCta.trim()) {
+            nextCaptions.cta = brandKit.brandCta;
+          }
+          setCaptions(nextCaptions);
+          learnFromStoryGenerated(nextCaptions, {
+            templateId,
+            viralMode,
+            narrativeAngle: storyBrief?.narrativeAngle,
+          });
+          showToast(
+            `Story engine · ${project.story.framework} · score ${project.score?.overall ?? "—"}`
+          );
+          void trackEvent("ai_generation", {
+            templateId,
+            projectId: activeProjectId ?? "",
+            source: "story-engine",
+          });
+          if (isStudio && images.length > 0) {
+            void creativePipeline.startGeneration({
+              images,
+              captions: nextCaptions,
+              analysis: lastAnalysis ?? undefined,
+            });
+          }
+          return;
+        }
+      }
 
       const profile = getDirectorProfileSnapshot();
       let analysis = lastAnalysis;
@@ -837,6 +903,11 @@ export default function CarouselEditor({
     styleReference,
     creatorDirection,
     styleVision,
+    isStudio,
+    runStoryEngine,
+    setStoryProject,
+    nichePreference,
+    creativePipeline,
   ]);
 
   const handleQuickWorkflow = useCallback(
@@ -923,6 +994,15 @@ export default function CarouselEditor({
       const beforeMutation = cloneArtDirection(dir);
 
       try {
+        const slideId = getSlideIdForIndex(storyProject, selectedSlideIndex);
+        if (slideId && storyProject) {
+          await enhanceStorySlide(slideId, prompt);
+          const updated = useCarouselProjectStore.getState().project;
+          if (updated) {
+            setCaptions(projectToCaptions(updated));
+          }
+        }
+
         const prefs = getSlidePrefs(selectedSlideIndex);
         const slideKey = SLIDE_KEYS[selectedSlideIndex];
         const result = await enhanceSlideFromPrompt({
@@ -971,6 +1051,8 @@ export default function CarouselEditor({
       patchSlidePrefs,
       handleCaptionChange,
       showToast,
+      storyProject,
+      enhanceStorySlide,
     ]
   );
 
@@ -1130,6 +1212,9 @@ export default function CarouselEditor({
             </div>
 
             <aside className="builder-aside builder-panel order-3 min-h-0 w-full shrink-0 border-white/[0.06] lg:w-72 lg:border-l xl:w-80">
+              <div className="border-b border-white/[0.06] p-3">
+                <CarouselScorePanel score={storyScore} />
+              </div>
               <BuilderInspector
                 slideIndex={selectedSlideIndex}
                 slideKey={slideKey}
