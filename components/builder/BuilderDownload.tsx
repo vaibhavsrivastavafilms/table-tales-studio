@@ -1,6 +1,11 @@
 "use client";
 
-import { memo, useCallback, useState } from "react";
+import {
+  memo,
+  type MutableRefObject,
+  useCallback,
+  useState,
+} from "react";
 import {
   exportAllSlides,
   exportSingleSlide,
@@ -8,7 +13,6 @@ import {
 } from "@/lib/exportSlides";
 import { acquireExportLock, releaseExportLock } from "@/lib/exportSession";
 import { canExport, recordExportUsage } from "@/lib/usage";
-import type { MutableRefObject } from "react";
 
 type BuilderDownloadProps = {
   slideRefs: MutableRefObject<(HTMLElement | null)[]>;

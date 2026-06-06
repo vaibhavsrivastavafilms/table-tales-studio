@@ -7,13 +7,11 @@ import {
   DIRECTION_EMOTIONS,
   type CreatorDirection,
 } from "@/lib/creatorDirection";
-import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import { AI_DESIGN_MODES } from "@/lib/aiDesignModes";
+import { AI_DESIGN_MODES, type AiDesignModeId } from "@/lib/aiDesignModes";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import { TEMPLATE_LIST, type TemplateId } from "@/lib/templates";
+import { TEMPLATE_LIST, isDoodleStoryTemplate, type TemplateId } from "@/lib/templates";
 import { VIRAL_HOOK_MODES, type ViralHookMode } from "@/lib/viralHooks";
-import { isDoodleStoryTemplate } from "@/lib/templates";
 
 type CreatorInputPanelProps = {
   images: string[];

@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import HydrationDiagnostics from "@/components/HydrationDiagnostics";
 import { getAppUrl } from "@/lib/env";
+import {
+  buildRootHtmlClass,
+  logServerRootHtmlClasses,
+} from "@/lib/hydrationDiagnostics";
+import { TABLE_TALES_LOGO_PATH } from "@/lib/brand/logo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,6 +18,16 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+/** Font variables + layout on body — keeps `<html>` attribute-free so extension injections cannot clash with app classes. */
+const ROOT_BODY_CLASS = buildRootHtmlClass(
+  geistSans.variable,
+  geistMono.variable,
+  "flex min-h-full min-w-0 flex-col",
+  "h-full antialiased"
+);
+
+logServerRootHtmlClasses(ROOT_BODY_CLASS);
 
 const appUrl = getAppUrl();
 
@@ -30,6 +46,10 @@ export const metadata: Metadata = {
     title: "Table Tales Studio",
     description: "AI Food Storytelling Carousel Generator",
   },
+  icons: {
+    icon: TABLE_TALES_LOGO_PATH,
+    apple: TABLE_TALES_LOGO_PATH,
+  },
 };
 
 export default function RootLayout({
@@ -38,11 +58,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="flex min-h-full min-w-0 flex-col">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body
+        className={ROOT_BODY_CLASS}
+        data-root-body-class={ROOT_BODY_CLASS}
+        suppressHydrationWarning
+      >
+        <HydrationDiagnostics serverRootClass={ROOT_BODY_CLASS} />
+        {children}
+      </body>
     </html>
   );
 }

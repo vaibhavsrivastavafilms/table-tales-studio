@@ -1,6 +1,13 @@
 import { isBrowser, revokeObjectUrls } from "@/lib/browser";
+import {
+  logUploadFailure,
+  UploadPipelineError,
+} from "@/lib/uploadDiagnostics";
 import { logMonitoring } from "@/lib/monitoring";
 import {
+  assertNonEmptyBlob,
+  isAllowedUploadMime,
+  isValidBase64DataUrl,
   LIMITS,
   validateUploadFiles,
   type UploadValidationResult,
@@ -16,10 +23,40 @@ export type ProcessedUpload = {
   thumbnailDataUrl: string;
 };
 
+function guardFileMime(file: File): void {
+  const mime = (file.type || "").toLowerCase();
+  if (mime && !isAllowedUploadMime(mime)) {
+    throw new UploadPipelineError({
+      code: "unsupported_mime",
+      message: `Unsupported image type: ${mime}`,
+      stage: "validating",
+      mimeType: mime,
+      fileName: file.name,
+      payloadBytes: file.size,
+    });
+  }
+}
+
 export async function compressImageFile(file: File): Promise<Blob> {
+  guardFileMime(file);
+
   if (!isBrowser()) return file;
 
-  const bitmap = await createImageBitmap(file);
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch (err) {
+    throw new UploadPipelineError({
+      code: "canvas_conversion",
+      message: "Could not decode image for optimization",
+      stage: "optimizing",
+      mimeType: file.type,
+      fileName: file.name,
+      payloadBytes: file.size,
+      cause: err instanceof Error ? err.message : undefined,
+    });
+  }
+
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
@@ -28,7 +65,17 @@ export async function compressImageFile(file: File): Promise<Blob> {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return file;
+  if (!ctx) {
+    bitmap.close();
+    throw new UploadPipelineError({
+      code: "canvas_conversion",
+      message: "Canvas unavailable for image optimization",
+      stage: "optimizing",
+      fileName: file.name,
+      mimeType: file.type,
+      payloadBytes: file.size,
+    });
+  }
 
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
@@ -37,11 +84,24 @@ export async function compressImageFile(file: File): Promise<Blob> {
     canvas.toBlob((b) => resolve(b), "image/jpeg", JPEG_QUALITY)
   );
 
-  return blob ?? file;
+  if (!blob || blob.size === 0) {
+    throw new UploadPipelineError({
+      code: "canvas_conversion",
+      message: "Image optimization produced an empty file",
+      stage: "optimizing",
+      fileName: file.name,
+      mimeType: file.type,
+      payloadBytes: file.size,
+    });
+  }
+
+  assertNonEmptyBlob(blob, "optimized image");
+  return blob;
 }
 
 export async function createThumbnailBlob(blob: Blob): Promise<Blob> {
   if (!isBrowser()) return blob;
+  assertNonEmptyBlob(blob, "source for thumbnail");
 
   const bitmap = await createImageBitmap(blob);
   const scale = Math.min(1, THUMB_MAX / Math.max(bitmap.width, bitmap.height));
@@ -52,25 +112,45 @@ export async function createThumbnailBlob(blob: Blob): Promise<Blob> {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return blob;
+  if (!ctx) {
+    bitmap.close();
+    return blob;
+  }
 
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  return (
+  const thumb =
     (await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.75)
-    )) ?? blob
-  );
+    )) ?? blob;
+
+  assertNonEmptyBlob(thumb, "thumbnail");
+  return thumb;
 }
 
 export async function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
+  assertNonEmptyBlob(blob, "blob for data URL");
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+
+  if (!isValidBase64DataUrl(dataUrl)) {
+    throw new UploadPipelineError({
+      code: "invalid_base64",
+      message: "Invalid image data URL after encoding",
+      stage: "optimizing",
+      mimeType: blob.type,
+      payloadBytes: blob.size,
+      uploadTarget: "data_url",
+    });
+  }
+
+  return dataUrl;
 }
 
 export function validateFilesForUpload(files: File[]): UploadValidationResult {
@@ -82,7 +162,14 @@ function withUploadTimeout<T>(promise: Promise<T>): Promise<T> {
     promise,
     new Promise<T>((_, reject) => {
       setTimeout(
-        () => reject(new Error("Upload processing timed out")),
+        () =>
+          reject(
+            new UploadPipelineError({
+              code: "processing_timeout",
+              message: "Upload processing timed out",
+              stage: "optimizing",
+            })
+          ),
         LIMITS.uploadTimeoutMs
       );
     }),
@@ -95,7 +182,11 @@ export async function processUploadFiles(
   const checked = validateUploadFiles(files);
   if (!checked.ok) {
     logMonitoring("upload_rejected", "warn", { reason: checked.reason });
-    throw new Error(checked.reason);
+    throw new UploadPipelineError({
+      code: "validation",
+      message: checked.reason,
+      stage: "validating",
+    });
   }
 
   const objectUrls: string[] = [];
@@ -115,7 +206,9 @@ export async function processUploadFiles(
     return results;
   } catch (error) {
     revokeObjectUrls(objectUrls);
-    logMonitoring("upload_process_failed", "error");
+    if (!(error instanceof UploadPipelineError)) {
+      logUploadFailure(error, { code: "unknown", stage: "optimizing" });
+    }
     throw error;
   }
 }

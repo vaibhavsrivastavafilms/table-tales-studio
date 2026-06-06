@@ -1,5 +1,8 @@
-import type { CreatorDirection } from "@/lib/creatorDirection";
-import { DEFAULT_CREATOR_DIRECTION } from "@/lib/creatorDirection";
+import {
+  type CreatorDirection,
+  DEFAULT_CREATOR_DIRECTION,
+} from "@/lib/creatorDirection";
+
 import type { ExportFormat } from "@/lib/exportSlides";
 import type { PlatformModeId } from "@/lib/platformModes";
 import type { QuickWorkflowId } from "@/lib/quickWorkflows";

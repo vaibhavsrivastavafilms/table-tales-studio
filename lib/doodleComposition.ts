@@ -2,6 +2,7 @@ import {
   getReferenceSlideBlueprint,
   type ReferenceSlideBlueprint,
 } from "@/lib/doodleCafeLock";
+import { buildStoryDoodles } from "@/lib/editorialDoodleStoryMode";
 import { generateAmbientDoodles, type DoodleElement } from "@/lib/doodleSystem";
 import { adaptDoodleFromReference, type DoodleStyleAdaptation } from "@/lib/doodleStyleAdaptation";
 import {
@@ -50,6 +51,12 @@ export function buildDoodleComposition(input: {
   );
 
   const blueprint = getReferenceSlideBlueprint(input.slideIndex, w, h);
+  const storyDoodles = buildStoryDoodles({
+    slideIndex: input.slideIndex,
+    width: w,
+    height: h,
+    analysis: input.analysis,
+  });
   const placement = analyzeDoodleTextPlacement({
     slideIndex: input.slideIndex,
     styleReference: input.styleReference,
@@ -78,7 +85,9 @@ export function buildDoodleComposition(input: {
     return !inFood;
   };
 
-  const elements = [...blueprint.heroDoodles, ...ambient].filter(filterHero);
+  const elements = [...storyDoodles, ...ambient]
+    .filter(filterHero)
+    .slice(0, 6);
 
   const captionZone = blueprint.captionZone;
 

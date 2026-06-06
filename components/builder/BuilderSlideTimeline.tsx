@@ -2,22 +2,46 @@
 
 import { memo } from "react";
 import { SLIDE_KEYS, SLIDE_COUNT } from "@/lib/slides";
+import { useRenderDiagnostic, slideStatesKey } from "@/lib/renderProfiler";
+import type { SlideRenderState } from "@/lib/generationStages";
 
 type BuilderSlideTimelineProps = {
   images: string[];
+  /** Per-slide URLs from hero engine (index 0 = slide 1). Falls back to upload order. */
+  slideImages?: string[];
   selectedIndex: number;
   onSelectSlide: (index: number) => void;
   onSwapSlides?: (fromIndex: number, toIndex: number) => void;
   disabled?: boolean;
+  slideStates?: Map<number, SlideRenderState>;
 };
+
+function timelineThumbClass(state: SlideRenderState | undefined): string {
+  if (state === "rendered") return "builder-thumb-rendered";
+  if (state === "generating") return "builder-thumb-generating builder-thumb-shimmer";
+  return "builder-thumb-queued";
+}
+
+function ringClass(
+  state: SlideRenderState | undefined,
+  active: boolean
+): string {
+  if (active) return "ring-2 ring-[#f4c430] shadow-[0_0_20px_rgba(244,196,48,0.15)]";
+  if (state === "rendered") return "ring-1 ring-[#f4c430]/40";
+  if (state === "generating") return "ring-1 ring-[#f4c430]/25 builder-thumb-shimmer";
+  return "ring-1 ring-white/10 opacity-70";
+}
 
 function BuilderSlideTimeline({
   images,
+  slideImages,
   selectedIndex,
   onSelectSlide,
   onSwapSlides,
   disabled,
+  slideStates,
 }: BuilderSlideTimelineProps) {
+  useRenderDiagnostic("BuilderSlideTimeline");
   const hasImages = images.length > 0;
 
   return (
@@ -33,16 +57,17 @@ function BuilderSlideTimeline({
       <div className="carousel-scroll flex gap-2 overflow-x-auto pb-1">
         {SLIDE_KEYS.map((key, i) => {
           const thumb =
-            images[i] ?? images[images.length - 1] ?? images[0] ?? "";
+            slideImages?.[i] ??
+            images[i] ??
+            images[images.length - 1] ??
+            images[0] ??
+            "";
           const active = i === selectedIndex;
+          const state = slideStates?.get(i + 1);
           return (
             <div
               key={key}
-              className={`builder-timeline-item shrink-0 rounded-xl transition-all duration-300 ${
-                active
-                  ? "ring-2 ring-[#f4c430] shadow-[0_0_20px_rgba(244,196,48,0.15)]"
-                  : "ring-1 ring-white/10 opacity-80 hover:opacity-100"
-              }`}
+              className={`builder-timeline-item shrink-0 rounded-xl transition-all duration-300 ${ringClass(state, active)}`}
             >
               <button
                 type="button"
@@ -58,7 +83,7 @@ function BuilderSlideTimeline({
                     <img
                       src={thumb}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className={`h-full w-full object-cover transition-all duration-500 ${timelineThumbClass(state)}`}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-lg text-zinc-700">
@@ -69,7 +94,9 @@ function BuilderSlideTimeline({
                     className={`absolute bottom-1 left-1 rounded px-1 py-0.5 text-[9px] font-bold ${
                       active
                         ? "bg-[#f4c430] text-black"
-                        : "bg-black/70 text-zinc-400"
+                        : state === "rendered"
+                          ? "bg-[#f4c430]/90 text-black"
+                          : "bg-black/70 text-zinc-400"
                     }`}
                   >
                     {i + 1}
@@ -106,4 +133,19 @@ function BuilderSlideTimeline({
   );
 }
 
-export default memo(BuilderSlideTimeline);
+function timelinePropsEqual(
+  prev: BuilderSlideTimelineProps,
+  next: BuilderSlideTimelineProps
+): boolean {
+  return (
+    prev.selectedIndex === next.selectedIndex &&
+    prev.disabled === next.disabled &&
+    prev.images === next.images &&
+    prev.slideImages === next.slideImages &&
+    prev.onSelectSlide === next.onSelectSlide &&
+    prev.onSwapSlides === next.onSwapSlides &&
+    slideStatesKey(prev.slideStates) === slideStatesKey(next.slideStates)
+  );
+}
+
+export default memo(BuilderSlideTimeline, timelinePropsEqual);

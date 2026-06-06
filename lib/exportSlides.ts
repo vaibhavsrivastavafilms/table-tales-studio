@@ -2,6 +2,7 @@ import { toJpeg, toPng } from "html-to-image";
 import JSZip from "jszip";
 import { saveAs } from "file-saver";
 import { isBrowser } from "@/lib/browser";
+import { waitForAllSlideAssets, waitForSlideAssets } from "@/lib/exportAssetReady";
 import { SLIDE_COUNT } from "@/lib/slides";
 import type { ExportFormat } from "@/lib/validation";
 
@@ -101,6 +102,7 @@ async function safeCapture(
   element: HTMLElement,
   format: ExportFormat
 ): Promise<string> {
+  await waitForSlideAssets(element);
   await waitForImages(element);
   const options = buildCaptureOptions(format);
 
@@ -207,6 +209,7 @@ export async function exportAllSlides(
       : elements.slice(0, MAX_EXPORT_SLOTS);
 
   try {
+    await waitForAllSlideAssets(slots);
     for (let i = 0; i < slots.length; i++) {
       throwIfAborted(options.signal);
       await yieldToMain();

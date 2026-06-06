@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useIsClient, useNeedsOnboarding } from "@/lib/clientHooks";
 import { initClientMonitoring } from "@/lib/monitoring";
+import { initClientUploadEnv } from "@/lib/uploadEnv";
 import OnboardingFlow from "@/components/onboarding/OnboardingFlow";
 
 type OnboardingGateProps = {
@@ -19,6 +20,7 @@ export default function OnboardingGate({ children }: OnboardingGateProps) {
     if (!isClient || monitoringStarted.current) return;
     monitoringStarted.current = true;
     initClientMonitoring();
+    initClientUploadEnv();
   }, [isClient]);
 
   const showOnboarding = isClient && needsOnboarding && !dismissed;

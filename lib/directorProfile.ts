@@ -1,5 +1,7 @@
-import type { TemplateId } from "@/lib/templates";
-import { DEFAULT_TEMPLATE_ID } from "@/lib/templates";
+import {
+  DEFAULT_TEMPLATE_ID,
+  type TemplateId,
+} from "@/lib/templates";
 
 const STORAGE_KEY = "tts:director:profile";
 const MAX_ANGLES = 6;

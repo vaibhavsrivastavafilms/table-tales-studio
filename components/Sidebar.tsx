@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import TableTalesLogo from "@/components/brand/TableTalesLogo";
 import { clearDraft } from "@/lib/draftStorage";
 import { logMonitoring } from "@/lib/monitoring";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -28,9 +29,9 @@ export default function Sidebar({ onLogout }: SidebarProps) {
 
   return (
     <aside className="hidden h-full rounded-3xl border border-zinc-800 bg-[#111111] p-5 xl:block">
-      <h2 className="mb-10 text-2xl font-bold xl:text-3xl">
-        Table Tales Studio
-      </h2>
+      <div className="mb-10">
+        <TableTalesLogo size="sm" className="max-w-[140px]" />
+      </div>
 
       <nav className="space-y-6 text-zinc-400">
         <Link

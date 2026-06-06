@@ -26,12 +26,18 @@ function pushEvent(event: MonitoringEvent): void {
     return;
   }
 
+  const tag = `[tts:${event.level}] ${event.name}`;
+  if (event.level === "error") {
+    console.error(tag, event.meta ?? {});
+    return;
+  }
+  if (event.level === "warn") {
+    if (!isProd || event.meta) console.warn(tag, event.meta ?? {});
+    else console.warn(tag);
+    return;
+  }
   if (!isProd) {
-    const tag = `[tts:${event.level}] ${event.name}`;
-    if (event.level === "error") console.error(tag, event.meta);
-    else if (event.level === "warn") console.warn(tag, event.meta);
-  } else if (event.level === "error") {
-    console.error(`[tts:error] ${event.name}`);
+    console.log(tag, event.meta ?? {});
   }
 }
 

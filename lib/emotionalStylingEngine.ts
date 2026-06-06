@@ -1,6 +1,10 @@
 import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import type { TemplateId } from "@/lib/templates";
-import { isDoodleStoryTemplate, isRichRelationshipTemplate } from "@/lib/templates";
+import {
+  isDoodleStoryTemplate,
+  isRichRelationshipTemplate,
+  type TemplateId,
+} from "@/lib/templates";
+
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 
 export type EmotionalStyleId =
@@ -134,11 +138,6 @@ export function resolveEmotionalStyle(input: {
   mood?: string;
 }): EmotionalStyleProfile {
   if (isDoodleStoryTemplate(input.templateId)) {
-    if (input.mode === "cozy-monsoon-cafe") return PROFILES["cozy-cafe"];
-    if (input.mode === "sketchbook-dining") return PROFILES.luxury;
-    if (input.mode === "pinterest-relationship" || input.mode === "handwritten-memory-reel") {
-      return PROFILES["pinterest-relationship"];
-    }
     return PROFILES["editorial-doodle"];
   }
   if (isRichRelationshipTemplate(input.templateId)) {

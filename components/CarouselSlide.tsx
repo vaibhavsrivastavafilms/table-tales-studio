@@ -1,5 +1,17 @@
 import { forwardRef, memo, useMemo } from "react";
+import CarouselRendererPreview from "@/components/carousel-renderer/CarouselRendererPreview";
+import CarouselRendererSlide from "@/components/carousel-renderer/CarouselRendererSlide";
 import DoodleStorySlide from "@/components/DoodleStorySlide";
+import {
+  CAROUSEL_HEIGHT,
+  CAROUSEL_WIDTH,
+  type CarouselDocument,
+} from "@/lib/carousel-renderer/types";
+
+import RendererDoodleLayer from "@/components/renderers/RendererDoodleLayer";
+import TemplatePhotoComposite from "@/components/renderers/TemplatePhotoComposite";
+import EditorialLayerStack from "@/components/EditorialLayerStack";
+import EditorialTypographyBlocks from "@/components/EditorialTypographyBlocks";
 import RichRelationshipSlide from "@/components/RichRelationshipSlide";
 import {
   fontScaleForPreset,
@@ -39,6 +51,10 @@ export type CarouselSlideProps = {
   aiDesign?: AiSlideDesign | null;
   slidePrefs?: SlideEditorPrefs;
   artDirection?: SlideArtDirection | null;
+  /** 8-slide Doodle Café JSON from carousel-renderer (when template is doodle-story). */
+  carouselDocument?: CarouselDocument | null;
+  /** Full 1080×1350 capture for PNG export rack. */
+  exportMode?: boolean;
 };
 
 const SLIDE_WIDTH = 320;
@@ -60,6 +76,8 @@ const CarouselSlide = memo(
       aiDesign,
       slidePrefs,
       artDirection,
+      carouselDocument,
+      exportMode = false,
     },
     ref
   ) {
@@ -112,6 +130,17 @@ const CarouselSlide = memo(
     const displayWatermark =
       watermarkText ??
       (showWatermark ? "Made with Table Tales Studio" : null);
+
+    const carouselSlide = useMemo(() => {
+      if (!carouselDocument || !isDoodle) return null;
+      return (
+        carouselDocument.slides.find((s) => s.index === index) ??
+        carouselDocument.slides[0] ??
+        null
+      );
+    }, [carouselDocument, isDoodle, index]);
+
+    const useCarouselRenderer = isDoodle && carouselSlide != null;
     const effectiveAlign =
       slidePrefs?.captionAlignment ??
       artDirection?.typography?.align ??
@@ -156,8 +185,9 @@ const CarouselSlide = memo(
         ref={ref}
         className={`preview-slide-card relative shrink-0 overflow-hidden ring-1 ring-white/10 transition-all duration-300 hover:-translate-y-0.5 hover:ring-[color:var(--slide-accent)]/25 ${hoverClass}`}
         style={{
-          width: SLIDE_WIDTH,
-          height: SLIDE_HEIGHT,
+          width: exportMode && useCarouselRenderer ? CAROUSEL_WIDTH : SLIDE_WIDTH,
+          height:
+            exportMode && useCarouselRenderer ? CAROUSEL_HEIGHT : SLIDE_HEIGHT,
           borderRadius: isDoodle
             ? (visual.borderRadius ?? slideRadius)
             : slideRadius,
@@ -170,7 +200,25 @@ const CarouselSlide = memo(
         }}
         aria-label={`Slide ${index}`}
       >
-        {isDoodle ? (
+        {useCarouselRenderer ? (
+          exportMode ? (
+            <CarouselRendererSlide
+              slide={carouselSlide}
+              width={CAROUSEL_WIDTH}
+              height={CAROUSEL_HEIGHT}
+              showWatermark={displayWatermark}
+            />
+          ) : (
+            <CarouselRendererPreview
+              document={carouselDocument}
+              photoUrls={[]}
+              captions={[]}
+              slideIndex={index}
+              showWatermark={displayWatermark}
+              className="h-full w-full rounded-[inherit]"
+            />
+          )
+        ) : isDoodle ? (
           <DoodleStorySlide
             image={image}
             text={text}
@@ -203,7 +251,26 @@ const CarouselSlide = memo(
           />
         ) : (
           <>
-            {image ? (
+            {artDirection?.collage ? (
+              <EditorialLayerStack
+                collage={artDirection.collage}
+                editorial={artDirection.editorial}
+                width={SLIDE_WIDTH}
+                height={SLIDE_HEIGHT}
+                reveal={typeReveal}
+              />
+            ) : artDirection?.templateRender && image ? (
+              <TemplatePhotoComposite
+                image={image}
+                width={SLIDE_WIDTH}
+                height={SLIDE_HEIGHT}
+                render={artDirection.templateRender}
+                fallbackFilter={
+                  artDirection.photoFilter ??
+                  `contrast(${visual.imageContrast}) saturate(${visual.imageSaturation})`
+                }
+              />
+            ) : image ? (
               <img
                 src={image}
                 alt=""
@@ -222,37 +289,60 @@ const CarouselSlide = memo(
               <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-[#0b0f1a] to-black" />
             )}
 
-            {artDirection?.layout?.gradientZones?.top ? (
-              <div
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background: artDirection.layout.gradientZones.top,
-                  opacity: overlayScale,
-                }}
-              />
-            ) : (
-              <div
-                className="pointer-events-none absolute inset-0"
-                style={{ background: overlayGradient }}
+            {artDirection?.redesign?.overlayUrl && !artDirection.collage?.layers.some((l) => l.type === "redesign") && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={artDirection.redesign.overlayUrl}
+                alt=""
+                className="pointer-events-none absolute inset-0 z-[12] h-full w-full object-cover mix-blend-multiply"
+                style={{ opacity: typeReveal * 0.88 }}
+                aria-hidden
               />
             )}
 
-            {artDirection?.layout?.gradientZones?.bottom ? (
+            {!artDirection?.templateRender &&
+              (artDirection?.layout?.gradientZones?.top ? (
+                <div
+                  className="pointer-events-none absolute inset-0 z-[8]"
+                  style={{
+                    background: artDirection.layout.gradientZones.top,
+                    opacity: overlayScale,
+                  }}
+                />
+              ) : (
+                <div
+                  className="pointer-events-none absolute inset-0 z-[8]"
+                  style={{ background: overlayGradient }}
+                />
+              ))}
+
+            {!artDirection?.templateRender &&
+              (artDirection?.layout?.gradientZones?.bottom ? (
+                <div
+                  className="pointer-events-none absolute inset-0 z-[8]"
+                  style={{
+                    background: artDirection.layout.gradientZones.bottom,
+                    opacity: overlayScale,
+                  }}
+                />
+              ) : null)}
+
+            {!artDirection?.templateRender && (
               <div
-                className="pointer-events-none absolute inset-0"
+                className="pointer-events-none absolute inset-0 z-[8]"
                 style={{
-                  background: artDirection.layout.gradientZones.bottom,
-                  opacity: overlayScale,
+                  background: `radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,${artDirection?.layout?.gradientZones?.vignette ?? config.vignetteIntensity}) 100%)`,
                 }}
               />
-            ) : null}
+            )}
 
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background: `radial-gradient(ellipse at center, transparent 38%, rgba(0,0,0,${artDirection?.layout?.gradientZones?.vignette ?? config.vignetteIntensity}) 100%)`,
-              }}
-            />
+            {artDirection?.templateRender &&
+              artDirection.templateRender.doodleLayer.doodles.length > 0 && (
+                <RendererDoodleLayer
+                  layer={artDirection.templateRender.doodleLayer}
+                  opacity={overlayScale * typeReveal}
+                />
+              )}
 
             {captionBottom && (
               <div
@@ -312,41 +402,67 @@ const CarouselSlide = memo(
               </span>
             </div>
 
-            <div
-              className={`absolute inset-x-0 z-10 flex px-6 ${artDirection?.composition?.motionClass ?? ""} ${
-                captionCentered
-                  ? "inset-0 items-center justify-center py-0"
-                  : captionTop
-                    ? "top-0 pb-8 pt-14"
-                    : "bottom-0 pb-10 pt-16"
-              } ${
-                effectiveAlign === "center"
-                  ? "justify-center"
-                  : effectiveAlign === "right"
-                    ? "justify-end"
-                    : "justify-start"
-              }`}
-              style={{ opacity: typeReveal }}
-            >
-              <p
-                className={`max-w-[260px] font-bold leading-snug tracking-tight text-white ${captionAlignClass}`}
+            {artDirection?.typographyPlan ? (
+              <EditorialTypographyBlocks
+                caption={text}
+                plan={artDirection.typographyPlan}
+                typography={artDirection.typography}
+                highlightColor={accent}
+                reveal={typeReveal}
+                width={SLIDE_WIDTH}
+                height={SLIDE_HEIGHT}
+              />
+            ) : (
+              <div
+                className={`absolute inset-x-0 z-[22] flex px-6 ${artDirection?.composition?.motionClass ?? ""} ${
+                  artDirection?.templateRender
+                    ? ""
+                    : captionCentered
+                      ? "inset-0 items-center justify-center py-0"
+                      : captionTop
+                        ? "top-0 pb-8 pt-14"
+                        : "bottom-0 pb-10 pt-16"
+                } ${
+                  effectiveAlign === "center"
+                    ? "justify-center"
+                    : effectiveAlign === "right"
+                      ? "justify-end"
+                      : "justify-start"
+                }`}
                 style={{
-                  fontSize: `${Math.round(
-                    fontSize *
-                      (artDirection?.typography?.scale ?? 1) *
-                      (slidePrefs?.typographyScale ?? 1)
-                  )}px`,
-                  textShadow:
-                    "0 2px 14px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.85)",
+                  opacity: typeReveal,
+                  ...(artDirection?.templateRender
+                    ? {
+                        left: artDirection.templateRender.typography.captionZone.x,
+                        top: artDirection.templateRender.typography.captionZone.y,
+                        width: artDirection.templateRender.typography.captionZone.width,
+                        right: "auto",
+                        bottom: "auto",
+                        padding: 0,
+                      }
+                    : {}),
                 }}
               >
-                {text || (
-                  <span className="text-sm font-medium text-white/35">
-                    Caption appears here
-                  </span>
-                )}
-              </p>
-            </div>
+                <p
+                  className={`max-w-[260px] font-bold leading-snug tracking-tight text-white ${captionAlignClass}`}
+                  style={{
+                    fontSize: `${Math.round(
+                      fontSize *
+                        (artDirection?.typography?.scale ?? 1) *
+                        (slidePrefs?.typographyScale ?? 1)
+                    )}px`,
+                    textShadow:
+                      "0 2px 14px rgba(0,0,0,0.95), 0 1px 4px rgba(0,0,0,0.85)",
+                  }}
+                >
+                  {text || (
+                    <span className="text-sm font-medium text-white/35">
+                      Caption appears here
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
 
             {config.accentLineWidth > 0 && (
               <div

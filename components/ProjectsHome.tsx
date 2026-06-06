@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import DashboardClientShell from "@/components/DashboardClientShell";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
 import Sidebar from "@/components/Sidebar";
+import TableTalesLogo from "@/components/brand/TableTalesLogo";
 import {
   createProject,
   deleteProject,
@@ -14,6 +15,7 @@ import {
   updateProject,
   type Project,
 } from "@/lib/projects";
+import { formatTimestampNeutral } from "@/lib/formatTimestamp";
 import { createBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import { TEMPLATE_LIST } from "@/lib/templates";
 import CreatorAnalyticsCard from "@/components/CreatorAnalyticsCard";
@@ -155,10 +157,8 @@ export default function ProjectsHome() {
     <main className="dashboard-main min-h-screen overflow-x-hidden bg-[#f7c600] p-4 text-white md:p-6">
       <div className="mx-auto min-w-0 max-w-[1600px]">
         <header className="mb-6 md:mb-10">
-          <h1 className="text-3xl font-bold text-black sm:text-5xl xl:text-7xl">
-            Table Tales Studio
-          </h1>
-          <p className="mt-2 text-base text-black sm:text-xl">
+          <TableTalesLogo size="lg" className="max-w-[220px] md:max-w-[280px]" priority />
+          <p className="mt-3 text-base text-black sm:text-xl">
             Your creator workspace
           </p>
         </header>
@@ -272,7 +272,7 @@ export default function ProjectsHome() {
                       className="w-full bg-transparent text-lg font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#f7c600]/40"
                     />
                     <p className="mt-1 text-xs text-zinc-500">
-                      Updated {new Date(project.updatedAt).toLocaleString()}
+                      Updated {formatTimestampNeutral(project.updatedAt)}
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Link

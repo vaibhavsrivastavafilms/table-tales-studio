@@ -8,8 +8,11 @@ let exportLocked = false;
 let activeSessionId: string | null = null;
 let lockAcquiredAt = 0;
 
+let exportSessionCounter = 0;
+
 export function createRenderSessionId(): string {
-  return `render-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  exportSessionCounter += 1;
+  return `render-${exportSessionCounter}`;
 }
 
 function releaseStaleLockIfNeeded(): void {

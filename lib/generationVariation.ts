@@ -1,5 +1,8 @@
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+} from "@/lib/slides";
+
 import type { DirectorProfile, HookIntensity } from "@/lib/directorProfile";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 const HISTORY_KEY = "tts:generation:history";

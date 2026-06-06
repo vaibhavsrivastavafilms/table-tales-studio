@@ -70,7 +70,7 @@ export function recordExportHistory(
 ): void {
   if (typeof window === "undefined") return;
   const entry: ExportHistoryEntry = {
-    id: `${Date.now()}`,
+    id: `export-${format}-${slideCount}-${new Date().toISOString()}`,
     at: new Date().toISOString(),
     format,
     slideCount,

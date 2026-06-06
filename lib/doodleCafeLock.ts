@@ -21,12 +21,12 @@ export const DOODLE_CAFE_CARAMEL = "#3d2914";
 
 /** Reference carousel copy (6 slides — hook → cta). */
 export const DOODLE_CAFE_REFERENCE_COPY: readonly string[] = [
-  "DOODLE THE\nNOODLES",
+  "NOT JUST FOOD.\nIT'S A WHOLE FEELING.",
   "COFFEE.\nCONVERSATIONS.\nCOMFORT.",
-  "HOT MAGGI.\nHAPPY MOOD.",
+  "STEAM RISES.\nCRAVINGS FOLLOW.",
   "SIP.\nCHILL.\nREPEAT.",
   "THE BEST KINDS OF\nTALKS HAPPEN HERE.",
-  "GOOD FOOD.\nGOOD MOOD.\nSEE YOU SOON!",
+  "GOOD FOOD.\nGOOD MOOD.\nSEE YOU SOON.",
 ] as const;
 
 export const DOODLE_CAFE_HOOKS = DOODLE_CAFE_REFERENCE_COPY;
@@ -87,22 +87,18 @@ export function getReferenceSlideBlueprint(
       return {
         layoutMode: "floating-editorial",
         captionZone: topCaption,
-        scriptLine: "Psh!",
         heroDoodles: [
-          { type: "human", variant: "on-rim", x: width - 118, y: height - 168, scale: 2.25, rotation: -6 },
-          { type: "speech", label: "Psh!", x: width - 52, y: height - 218, scale: 1.35, rotation: 8 },
+          { type: "human", variant: "on-rim", x: width - 118, y: height - 168, scale: 2.15, rotation: -6 },
+          { type: "underline", x: width - 96, y: height - 224, scale: 0.95, rotation: 5 },
         ],
       };
     case 5:
       return {
         layoutMode: "floating-editorial",
         captionZone: { ...topCaption, height: 128 },
-        scriptLine: "SAVE THIS SPOT!",
-        showQr: true,
-        showSaveArrow: true,
         heroDoodles: [
           { type: "human", variant: "table-duo", x: 20, y: height - 140, scale: 1.95, rotation: -4 },
-          { type: "arrow", x: width - 118, y: height - 108, scale: 1.2, rotation: -28 },
+          { type: "heart", x: width - 52, y: 68, scale: 0.7, rotation: 10 },
         ],
       };
     case 6:

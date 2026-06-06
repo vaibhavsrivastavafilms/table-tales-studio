@@ -10,8 +10,11 @@ import { generateCreativeDirection, formatCreativeDirection } from "@/lib/direct
 import type { DirectorProfile } from "@/lib/directorProfile";
 import { getRetentionPattern, type RetentionPattern } from "@/lib/retentionEngine";
 import { resolveStoryArc, type StoryArc } from "@/lib/storyArc";
-import type { StyleReference } from "@/lib/styleReference";
-import { summarizeStyleReference } from "@/lib/styleReference";
+import {
+  type StyleReference,
+  summarizeStyleReference,
+} from "@/lib/styleReference";
+
 import type { StyleVisionResult } from "@/lib/styleVision";
 import { suggestTemplateWithStyle, type TemplateSuggestion } from "@/lib/templateIntelligence";
 import { arcPacingHint, getTemplateBehavior } from "@/lib/templateBehavior";

@@ -1,6 +1,5 @@
 import type { CreatorMemory } from "@/lib/creatorMemory";
-import type { CreatorDirection } from "@/lib/creatorDirection";
-import { DEFAULT_CREATOR_DIRECTION } from "@/lib/creatorDirection";
+import { DEFAULT_CREATOR_DIRECTION, type CreatorDirection } from "@/lib/creatorDirection";
 import { buildCreativeDirection } from "@/lib/creativeDirection";
 import {
   getDirectorProfileSnapshot,
@@ -17,16 +16,18 @@ import { generateNarrative } from "@/lib/narrativeEngine";
 import { getPrimaryNarrative } from "@/lib/storyAngles";
 import { applySignatureLanguage } from "@/lib/signatureLanguage";
 import { adaptCaptionsToStyle } from "@/lib/styleCaptions";
-import type { StyleReference } from "@/lib/styleReference";
-import { summarizeStyleReference } from "@/lib/styleReference";
+import { summarizeStyleReference, type StyleReference } from "@/lib/styleReference";
 import { adaptDoodleFromReference } from "@/lib/doodleStyleAdaptation";
-import { isDoodleStoryTemplate } from "@/lib/templates";
 import {
   explainTemplateChoice,
   suggestTemplateWithStyle,
   type TemplateSuggestion,
 } from "@/lib/templateIntelligence";
-import { getTemplateConfig, type TemplateId } from "@/lib/templates";
+import {
+  getTemplateConfig,
+  isDoodleStoryTemplate,
+  type TemplateId,
+} from "@/lib/templates";
 import { analyzeImageSet, type VisualAnalysis } from "@/lib/visualAnalysis";
 import type { Captions } from "@/lib/slides";
 

@@ -4,11 +4,13 @@ import { memo, useCallback, useEffect, useState } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
 import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { TemplateId } from "@/lib/templates";
-import type { BrandKit } from "@/lib/brandKit";
+import {
+  type BrandKit,
+  resolveWatermarkText,
+} from "@/lib/brandKit";
 import type { StyleReference } from "@/lib/styleReference";
 import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import { resolveWatermarkText } from "@/lib/brandKit";
 
 type StoryboardPanelProps = {
   open: boolean;

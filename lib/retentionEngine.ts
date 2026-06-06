@@ -1,5 +1,9 @@
-import type { Captions, SlideKey } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+  type SlideKey,
+} from "@/lib/slides";
+
 import type { DirectorProfile, HookIntensity, PacingStyle } from "@/lib/directorProfile";
 
 export type RetentionPatternId =
