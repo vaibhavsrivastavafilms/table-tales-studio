@@ -1,5 +1,5 @@
 -- Table Tales OS · HR & Flip Office Integration
--- Run after 20260606_procurement_os_v2.sql
+-- Run after 20260606_procurement_os_v2.sql and before 20260607_os_platform_v3.sql
 
 create type employee_status as enum ('active', 'inactive', 'on_leave');
 create type employee_department as enum (
@@ -10,9 +10,6 @@ create type attendance_status as enum (
 );
 create type attendance_source as enum ('flip_office', 'csv', 'manual');
 create type payroll_run_status as enum ('draft', 'approved', 'paid');
-create type expense_category as enum (
-  'rent', 'utilities', 'marketing', 'maintenance', 'misc'
-);
 
 create table if not exists employees (
   id uuid primary key default gen_random_uuid(),
@@ -76,11 +73,12 @@ create table if not exists payroll_lines (
   days_absent int not null default 0
 );
 
-create table if not exists operating_expenses (
+-- Flip Office legacy expenses (separate from platform operating_expenses in v3)
+create table if not exists hr_flip_operating_expenses (
   id uuid primary key default gen_random_uuid(),
   date date not null,
   month text not null,
-  category expense_category not null default 'misc',
+  category text not null default 'misc' check (category in ('rent', 'utilities', 'marketing', 'maintenance', 'misc')),
   description text not null,
   amount numeric not null,
   outlet text not null default 'Table Tales',
@@ -100,5 +98,5 @@ create table if not exists flip_office_sync_logs (
 create index if not exists idx_attendance_date on attendance_records(date);
 create index if not exists idx_attendance_employee on attendance_records(employee_id);
 create index if not exists idx_payroll_runs_month on payroll_runs(month);
-create index if not exists idx_operating_expenses_month on operating_expenses(month);
+create index if not exists idx_hr_flip_operating_expenses_month on hr_flip_operating_expenses(month);
 create index if not exists idx_employees_flip_office on employees(flip_office_id);

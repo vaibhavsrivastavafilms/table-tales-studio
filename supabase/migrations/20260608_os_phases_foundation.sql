@@ -1,4 +1,5 @@
 -- Table Tales OS · Phases 1–8 foundation (expenses, P&L, approvals, daily MIS, notifications, documents)
+-- Apply after 20260607_os_platform_v3.sql
 -- Amounts stored as integer paise (100 paise = ₹1)
 
 -- Expenses (canonical table per product spec)
@@ -94,8 +95,8 @@ create table if not exists daily_mis_reports_v2 (
   whatsapp_summary text
 );
 
--- Notification preferences
-create table if not exists notification_preferences (
+-- Per-channel notification toggles (separate from platform notification_preferences in v3)
+create table if not exists notification_channel_preferences (
   user_id text primary key,
   low_stock boolean not null default true,
   food_cost_alert boolean not null default true,
@@ -134,7 +135,7 @@ alter table expenses enable row level security;
 alter table pnl_snapshots enable row level security;
 alter table approval_requests_v2 enable row level security;
 alter table daily_mis_reports_v2 enable row level security;
-alter table notification_preferences enable row level security;
+alter table notification_channel_preferences enable row level security;
 alter table documents enable row level security;
 
 create policy "expenses_all" on expenses for all to authenticated using (true) with check (true);
@@ -142,5 +143,5 @@ create policy "pnl_read" on pnl_snapshots for select to authenticated using (tru
 create policy "pnl_insert" on pnl_snapshots for insert to authenticated with check (true);
 create policy "approvals_v2_all" on approval_requests_v2 for all to authenticated using (true) with check (true);
 create policy "daily_mis_v2_all" on daily_mis_reports_v2 for all to authenticated using (true) with check (true);
-create policy "notif_prefs_all" on notification_preferences for all to authenticated using (true) with check (true);
+create policy "notif_channel_prefs_all" on notification_channel_preferences for all to authenticated using (true) with check (true);
 create policy "documents_all" on documents for all to authenticated using (true) with check (true);

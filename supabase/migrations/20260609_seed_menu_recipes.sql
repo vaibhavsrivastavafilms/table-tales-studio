@@ -1,5 +1,6 @@
--- Menu integration seed
+-- Menu integration seed (recipes.id remains uuid; stable app IDs stored in legacy_id)
 
+alter table if exists recipes add column if not exists legacy_id text unique;
 alter table if exists recipes add column if not exists menu_category text;
 alter table if exists recipes add column if not exists menu_subcategory text;
 alter table if exists recipes add column if not exists description text;
@@ -24,7 +25,7 @@ create table if not exists menu_ingredients (
 
 create table if not exists menu_recipe_ingredients (
   id text primary key,
-  recipe_id text not null references recipes(id) on delete cascade,
+  recipe_id uuid not null references recipes(id) on delete cascade,
   ingredient_id text not null references menu_ingredients(id),
   quantity decimal(10,3) not null,
   unit text not null,
@@ -35,7 +36,7 @@ create table if not exists menu_recipe_ingredients (
 
 create table if not exists recipe_cost_snapshots (
   id text primary key,
-  recipe_id text not null references recipes(id) on delete cascade,
+  recipe_id uuid not null references recipes(id) on delete cascade,
   ingredient_cost integer not null default 0,
   overhead_pct decimal(5,2) not null default 0,
   packaging_cost integer not null default 0,
@@ -164,15 +165,10 @@ values
 ('ing_coconut_water', 'Coconut Water', 'Beverages', 'litre', 0, 1.000, now(), now())
 on conflict (id) do nothing;
 
--- Menu recipes (207 items)
--- Note: requires recipes.id to be text; alter if still uuid in your deployment.
-
-
--- Seed 207 Table Tales menu recipes (brand-wide, branch_id NULL)
--- Requires recipes.id text PK. Run id migration separately if still uuid.
+-- Menu recipes (207 items) — legacy_id is the stable app identifier (e.g. rec_abc)
 
 insert into recipes (
-  id, name, selling_price, selling_price_paise, yield, yield_unit, status, outlet, branch_id,
+  legacy_id, name, selling_price, selling_price_paise, yield, yield_unit, status, outlet, branch_id,
   menu_category, menu_subcategory, description, serving_size,
   is_signature, is_spicy, is_jain_available, is_active, food_cost_target_pct, created_at
 ) values
@@ -383,4 +379,4 @@ insert into recipes (
   ('rec_hot_chocolate', 'Hot Chocolate', 240, 24000, 1, '200 ml', 'active', 'Table Tales', NULL, 'Desserts', NULL, 'Classic hot chocolate with whipped cream & biscoff on top.', '200 ml', false, false, true, true, 25.00, now()),
   ('rec_ice_cream_sundae', 'Ice Cream Sundae', 350, 35000, 1, '100 gms', 'active', 'Table Tales', NULL, 'Desserts', NULL, 'Ice cream sundae — Mango / Chocolate / Vanilla.', '100 gms', false, false, true, true, 25.00, now()),
   ('rec_ice_cream_scoop', 'Ice Cream Scoop', 100, 10000, 1, '1 scoop', 'active', 'Table Tales', NULL, 'Desserts', NULL, 'Single scoop — Chocolate / Vanilla / Mango / Kesar Pista / Coffee.', '1 scoop', false, false, true, true, 25.00, now())
-on conflict (id) do nothing;
+on conflict (legacy_id) do nothing;
