@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { OS_NAV, type OsNavItem } from "@/lib/os/navigation";
+import { countPendingApprovals } from "@/lib/os/approvals/engine";
+import { useProcurement } from "@/components/os/procurement/ProcurementProvider";
 
 type OsSidebarProps = {
   onNavigate?: () => void;
@@ -22,10 +21,12 @@ function NavLink({
   item,
   pathname,
   onNavigate,
+  badge,
 }: {
   item: OsNavItem;
   pathname: string;
   onNavigate?: () => void;
+  badge?: number;
 }) {
   const active = isActive(pathname, item.href);
   const Icon = item.icon;
@@ -48,10 +49,15 @@ function NavLink({
         )}
       />
       <span className="truncate">{item.title}</span>
-      {item.badge ? (
-        <Badge variant="default" className="ml-auto">
+      {badge && badge > 0 ? (
+        <span className="ml-auto rounded-full bg-[var(--os-terracotta)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+          {badge}
+        </span>
+      ) : null}
+      {item.badge && !badge ? (
+        <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-[var(--os-accent)]">
           {item.badge}
-        </Badge>
+        </span>
       ) : null}
     </Link>
   );
@@ -59,58 +65,52 @@ function NavLink({
 
 export default function OsSidebar({ onNavigate, className }: OsSidebarProps) {
   const pathname = usePathname();
+  const { db, activeBranchId } = useProcurement();
+  const pendingApprovals = countPendingApprovals(db, activeBranchId);
 
   return (
     <aside
       className={cn(
-        "flex h-full w-64 shrink-0 flex-col border-r border-[var(--os-border)] bg-[var(--os-sidebar)]",
+        "flex h-full min-h-[100dvh] w-64 shrink-0 flex-col border-r border-[var(--os-border)] bg-[var(--os-sidebar)]",
         className
       )}
     >
-      <div className="flex h-14 shrink-0 items-center gap-3 border-b border-[var(--os-border)] px-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--os-accent)]/15 text-sm font-bold text-[var(--os-accent)] ring-1 ring-[var(--os-accent)]/25">
-          TT
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-bold tracking-tight">Table Tales</p>
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--os-fg-subtle)]">
-            OS
-          </p>
+      <div className="shrink-0 border-b border-[var(--os-border)] px-4 py-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="os-brand truncate text-[1.65rem] leading-none text-white">
+              Table Tales
+            </p>
+            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--os-fg-subtle)]">
+              Hospitality OS
+            </p>
+          </div>
+          <span className="os-tag shrink-0">OS</span>
         </div>
       </div>
 
-      <ScrollArea className="flex-1 os-scroll">
-        <nav className="space-y-6 p-3">
-          {OS_NAV.map((section, idx) => (
-            <div key={section.id}>
-              {section.label ? (
-                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--os-fg-subtle)]">
-                  {section.label}
-                </p>
-              ) : null}
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavLink
-                    key={item.href}
-                    item={item}
-                    pathname={pathname}
-                    onNavigate={onNavigate}
-                  />
-                ))}
-              </div>
-              {idx < OS_NAV.length - 1 && section.label ? (
-                <Separator className="mt-4" />
-              ) : null}
+      <nav className="flex-1 space-y-6 overflow-y-auto os-scroll p-3">
+        {OS_NAV.map((section) => (
+          <div key={section.id}>
+            {section.label ? (
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--os-fg-subtle)]">
+                {section.label}
+              </p>
+            ) : null}
+            <div className="space-y-0.5">
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  onNavigate={onNavigate}
+                  badge={item.href === "/os/approvals" ? pendingApprovals : undefined}
+                />
+              ))}
             </div>
-          ))}
-        </nav>
-      </ScrollArea>
-
-      <div className="shrink-0 border-t border-[var(--os-border)] p-3">
-        <p className="px-3 text-[10px] text-[var(--os-fg-subtle)]">
-          Hospitality operations · shell preview
-        </p>
-      </div>
+          </div>
+        ))}
+      </nav>
     </aside>
   );
 }

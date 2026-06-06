@@ -5,14 +5,20 @@ import { Menu, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import OsSidebar from "@/components/os/OsSidebar";
+import OsBranchSelectorSlot from "@/components/os/OsBranchSelectorSlot";
 import { useOsTheme } from "@/components/os/OsThemeProvider";
 
 type OsMobileHeaderProps = {
   title: string;
   userEmail?: string | null;
+  showBranchSelector?: boolean;
 };
 
-export default function OsMobileHeader({ title, userEmail }: OsMobileHeaderProps) {
+export default function OsMobileHeader({
+  title,
+  userEmail,
+  showBranchSelector = false,
+}: OsMobileHeaderProps) {
   const { theme, toggleTheme } = useOsTheme();
   const [open, setOpen] = useState(false);
 
@@ -41,18 +47,21 @@ export default function OsMobileHeader({ title, userEmail }: OsMobileHeaderProps
           ) : null}
         </div>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleTheme}
-        aria-label="Toggle theme"
-      >
-        {theme === "dark" ? (
-          <Sun className="h-4 w-4" />
-        ) : (
-          <Moon className="h-4 w-4" />
-        )}
-      </Button>
+      <div className="flex items-center gap-1">
+        {showBranchSelector ? <OsBranchSelectorSlot compact /> : null}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          aria-label="Toggle theme"
+        >
+          {theme === "dark" ? (
+            <Sun className="h-4 w-4" />
+          ) : (
+            <Moon className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
     </header>
   );
 }

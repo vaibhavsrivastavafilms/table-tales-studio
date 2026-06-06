@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { pdf } from "pdf-to-img";
 import { extractText, getDocumentProxy } from "unpdf";
+import { mergeOcrPageResults } from "@/lib/os/procurement/ocr-merge";
 import { applyOcrTotalsToBill } from "@/lib/os/procurement/bill-totals";
 import { suggestCategory } from "@/lib/os/procurement/categories";
 import type { OcrBillResult } from "@/lib/os/procurement/types";
@@ -73,17 +74,20 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
 
 async function pdfPagesAsDataUrls(
   buffer: Buffer,
-  maxPages = 3
-): Promise<string[]> {
+  maxPages = 50
+): Promise<{ urls: string[]; pageCount: number }> {
   const urls: string[] = [];
   const document = await pdf(buffer, { scale: 1.5 });
   let page = 0;
+  let totalPages = 0;
   for await (const image of document) {
-    urls.push(`data:image/png;base64,${Buffer.from(image).toString("base64")}`);
+    totalPages += 1;
+    if (page < maxPages) {
+      urls.push(`data:image/png;base64,${Buffer.from(image).toString("base64")}`);
+    }
     page += 1;
-    if (page >= maxPages) break;
   }
-  return urls;
+  return { urls, pageCount: totalPages };
 }
 
 async function extractFromText(
@@ -136,7 +140,11 @@ async function extractFromImages(
 export async function extractBillFromFile(
   file: File,
   apiKey: string
-): Promise<{ result: OcrBillResult; source: "openai-text" | "openai-vision" }> {
+): Promise<{
+  result: OcrBillResult;
+  source: "openai-text" | "openai-vision" | "openai-vision-multipage";
+  pageCount?: number;
+}> {
   const client = new OpenAI({ apiKey });
   const buffer = Buffer.from(await file.arrayBuffer());
   const mime = file.type || inferMime(file.name);
@@ -148,17 +156,27 @@ export async function extractBillFromFile(
     if (text.length >= 80) {
       const textResult = await extractFromText(client, text);
       if (isUsableTextResult(textResult)) {
-        return { result: textResult, source: "openai-text" };
+        return { result: textResult, source: "openai-text", pageCount: 1 };
       }
     }
 
-    // Slow fallback: scanned/image PDF — first 3 pages only
-    const pageUrls = await pdfPagesAsDataUrls(buffer, 3);
-    if (!pageUrls.length) {
+    // Scanned / image PDF — OCR each page (up to 50), merge line items
+    const { urls, pageCount } = await pdfPagesAsDataUrls(buffer, 50);
+    if (!urls.length) {
       throw new Error("Could not read PDF pages — try a photo of the invoice");
     }
-    const result = await extractFromImages(client, pageUrls);
-    return { result, source: "openai-vision" };
+
+    if (urls.length === 1) {
+      const result = await extractFromImages(client, urls);
+      return { result, source: "openai-vision", pageCount };
+    }
+
+    const pageResults: OcrBillResult[] = [];
+    for (let i = 0; i < urls.length; i++) {
+      pageResults.push(await extractFromImages(client, [urls[i]!]));
+    }
+    const merged = mergeOcrPageResults(pageResults, pageCount);
+    return { result: merged, source: "openai-vision-multipage", pageCount };
   }
 
   if (!mime.startsWith("image/")) {
@@ -167,7 +185,7 @@ export async function extractBillFromFile(
 
   const dataUrl = `data:${mime};base64,${buffer.toString("base64")}`;
   const result = await extractFromImages(client, [dataUrl]);
-  return { result, source: "openai-vision" };
+  return { result, source: "openai-vision", pageCount: 1 };
 }
 
 function inferMime(filename: string): string {

@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import FoodCostView from "@/components/os/reports/FoodCostView";
 
 export default function FoodCostPage() {
-  return (
-    <OsPlaceholder
-      title="Food Cost"
-      description="Theoretical vs actual food cost by outlet, category, and period."
-    />
-  );
+  return <FoodCostView />;
 }

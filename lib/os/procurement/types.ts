@@ -1,3 +1,11 @@
+import type {
+  FlipCustomer,
+  FlipMenuMapping,
+  FlipOfficeIntegrationSettings,
+  FlipSale,
+  FlipSaleItem,
+} from "@/lib/os/integrations/flip-office/types";
+
 export type PurchaseStatus = "draft" | "verified" | "posted" | "rejected";
 export type VendorStatus = "active" | "inactive";
 export type ItemStatus = "active" | "inactive";
@@ -40,7 +48,8 @@ export type ProcurementRole =
   | "owner"
   | "accountant"
   | "procurement_manager"
-  | "store_manager";
+  | "store_manager"
+  | "kitchen_manager";
 
 export type AuditActionType =
   | "create"
@@ -60,11 +69,18 @@ export type AuditEntityType =
   | "dispute"
   | "recovery"
   | "vendor"
-  | "document";
+  | "document"
+  | "employee"
+  | "attendance"
+  | "payroll"
+  | "expense"
+  | "approval"
+  | "branch";
 export type LedgerEntryType =
   | "purchase"
   | "payment"
   | "credit_note"
+  | "debit_note"
   | "adjustment";
 
 export type InventoryCategory =
@@ -85,9 +101,11 @@ export type Vendor = {
   id: string;
   name: string;
   gstNumber: string | null;
+  panNumber: string | null;
   phone: string | null;
   address: string | null;
   email: string | null;
+  contactPerson: string | null;
   paymentTermsDays: number;
   invoicePattern: string | null;
   category: VendorCategory;
@@ -132,8 +150,19 @@ export type BillExtraCharge = {
   gstPercent?: number;
 };
 
+/** External document reference — never store base64 in localStorage. */
+export type StoredDocumentRef = {
+  id: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+  storageUrl: string;
+  pageCount?: number;
+};
+
 export type PurchaseBill = {
   id: string;
+  branchId: string;
   vendorId: string | null;
   vendorName: string;
   invoiceNumber: string;
@@ -144,8 +173,15 @@ export type PurchaseBill = {
   totalValue: number;
   /** Freight, packing, delivery, round-off, etc. — locked from invoice. */
   extraCharges: BillExtraCharge[];
+  /** Primary invoice attachment in external storage. */
+  document: StoredDocumentRef | null;
+  /** URL to OCR JSON in external storage (ocr-json bucket). */
+  ocrJsonUrl: string | null;
+  /** @deprecated stripped on save — use document.storageUrl */
   imageDataUrl: string | null;
+  /** @deprecated stripped on save — use document.storageUrl */
   pdfDataUrl: string | null;
+  /** @deprecated stripped on save — use ocrJsonUrl */
   ocrJson: string | null;
   items: PurchaseItem[];
   revisionParentId: string | null;
@@ -159,6 +195,7 @@ export type PurchaseBill = {
 
 export type InventoryMovement = {
   id: string;
+  branchId: string;
   itemId: string;
   billId: string | null;
   type: "purchase" | "consumption" | "transfer" | "wastage" | "adjustment";
@@ -185,6 +222,7 @@ export type ClosingStock = {
 
 export type OmissionCase = {
   id: string;
+  branchId: string;
   caseNumber: string;
   vendorId: string | null;
   vendorName: string;
@@ -250,6 +288,7 @@ export type BillEditHistory = {
 /** Per-line persisted vendor dispute (auto-created on qty difference). */
 export type VendorDisputeRecord = {
   id: string;
+  branchId: string;
   disputeNumber: string;
   vendorId: string | null;
   vendorName: string;
@@ -346,6 +385,8 @@ export type VendorDocument = {
     | "vendor_communication"
     | "revision";
   label: string;
+  document: StoredDocumentRef | null;
+  /** @deprecated stripped on save — use document.storageUrl */
   dataUrl: string | null;
   createdAt: string;
   createdBy: string;
@@ -424,6 +465,7 @@ export type CreditRegisterFilters = {
 
 export type CreditNote = {
   id: string;
+  branchId: string;
   vendorId: string;
   billId: string | null;
   omissionId: string | null;
@@ -440,8 +482,13 @@ export type CreditNote = {
     amount: number;
   }[];
   status: CreditNoteStatus;
+  document: StoredDocumentRef | null;
+  ocrJsonUrl: string | null;
+  /** @deprecated stripped on save */
   imageDataUrl: string | null;
+  /** @deprecated stripped on save */
   pdfDataUrl: string | null;
+  /** @deprecated stripped on save */
   ocrJson: string | null;
   createdAt: string;
   appliedAt: string | null;
@@ -462,6 +509,7 @@ export type InternalAdjustment = {
 
 export type VendorLedgerEntry = {
   id: string;
+  branchId: string;
   vendorId: string;
   type: LedgerEntryType;
   referenceId: string;
@@ -507,6 +555,7 @@ export type GrnLine = {
 
 export type GoodsReceivedNote = {
   id: string;
+  branchId: string;
   billId: string;
   vendorId: string | null;
   vendorName: string;
@@ -572,7 +621,523 @@ export type ProcurementInsight = {
   detail: string;
 };
 
+export type RecipeStatus = "active" | "inactive" | "draft";
+export type SalesChannel = "dine_in" | "takeaway" | "swiggy" | "zomato";
+export type PrepBatchStatus = "planned" | "in_progress" | "completed";
+
+export type Recipe = {
+  id: string;
+  branchId: string | null;
+  name: string;
+  /** Selling price in paise for menu items; legacy recipes may use rupees in this field. */
+  sellingPrice: number;
+  sellingPricePaise?: number;
+  yield: number;
+  yieldUnit: string;
+  status: RecipeStatus;
+  outlet: string;
+  menuCategory?: string | null;
+  menuSubcategory?: string | null;
+  description?: string | null;
+  servingSize?: string | null;
+  isSignature?: boolean;
+  isSpicy?: boolean;
+  isJainAvailable?: boolean;
+  isActive?: boolean;
+  foodCostTargetPct?: number;
+  createdAt: string;
+};
+
+export type MenuIngredientCategory =
+  | "Dairy"
+  | "Vegetables"
+  | "DryStore"
+  | "Sauces"
+  | "Imported"
+  | "Spices"
+  | "Beverages";
+
+export type MenuIngredient = {
+  id: string;
+  name: string;
+  category: MenuIngredientCategory;
+  unit: string;
+  costPerUnitPaise: number;
+  yieldFactor: number;
+  lastUpdated: string;
+  createdAt: string;
+};
+
+export interface MenuRecipeIngredient {
+  id: string;
+  recipeId: string;
+  ingredientId: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
+  createdAt: string;
+}
+
+/** Payload for creating/updating a menu recipe ingredient line. */
+export type MenuRecipeIngredientInput = {
+  recipeId: string;
+  ingredientId: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
+  id?: string;
+};
+
+export type RecipeCostSettings = {
+  recipeId: string;
+  overheadPct: number;
+  packagingCostPaise: number;
+  updatedAt: string;
+};
+
+export type RecipeCostSnapshot = {
+  id: string;
+  recipeId: string;
+  ingredientCostPaise: number;
+  overheadPct: number;
+  packagingCostPaise: number;
+  totalCostPaise: number;
+  sellingPricePaise: number;
+  foodCostPct: number;
+  marginPaise: number;
+  marginPct: number;
+  targetPct: number;
+  status: "on_target" | "over_target" | "critical";
+  portions: number;
+  createdAt: string;
+};
+
+export type RecipeIngredient = {
+  id: string;
+  recipeId: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+};
+
+export type PrepRecipe = {
+  id: string;
+  name: string;
+  outputItemId: string | null;
+  outputItemName: string;
+  outputYield: number;
+  outputUnit: string;
+  status: RecipeStatus;
+  createdAt: string;
+};
+
+export type PrepIngredient = {
+  id: string;
+  prepRecipeId: string;
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unit: string;
+};
+
+export type ProductionBatch = {
+  id: string;
+  branchId: string;
+  prepRecipeId: string;
+  prepRecipeName: string;
+  inputCost: number;
+  outputQty: number;
+  productionCost: number;
+  status: PrepBatchStatus;
+  createdAt: string;
+  createdBy: string;
+};
+
+export type Sale = {
+  id: string;
+  branchId: string;
+  channel: SalesChannel;
+  recipeId: string;
+  recipeName: string;
+  quantity: number;
+  unitPrice: number;
+  totalRevenue: number;
+  consumedAt: string;
+  outlet: string;
+  source?: SaleSource;
+  flipOfficeOrderId?: string | null;
+  flipOfficeLineId?: string | null;
+  paymentMethod?: string | null;
+};
+
+export type VendorPayment = {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  amount: number;
+  paymentDate: string;
+  reference: string;
+  note: string | null;
+  createdAt: string;
+  createdBy: string;
+};
+
+export type StockVarianceRecord = {
+  id: string;
+  itemId: string;
+  itemName: string;
+  date: string;
+  expected: number;
+  actual: number;
+  variance: number;
+  valueLoss: number;
+  unit: string;
+  createdAt: string;
+};
+
+export type FoodCostReportRow = {
+  recipeId: string;
+  recipeName: string;
+  recipeCost: number;
+  sellingPrice: number;
+  foodCostPercent: number;
+  margin: number;
+  marginPercent: number;
+  outlet: string;
+};
+
+export type OrgInsight = {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  detail: string;
+  module: string;
+};
+
+export type EmployeeStatus = "active" | "inactive" | "on_leave";
+export type EmployeeDepartment =
+  | "kitchen"
+  | "service"
+  | "management"
+  | "central_kitchen"
+  | "procurement";
+export type AttendanceStatus =
+  | "present"
+  | "absent"
+  | "half_day"
+  | "leave"
+  | "holiday"
+  | "week_off";
+export type PayrollRunStatus = "draft" | "approved" | "paid";
+export type ExpenseCategory =
+  | "Rent"
+  | "Electricity"
+  | "Gas"
+  | "Water"
+  | "Internet"
+  | "Marketing"
+  | "Maintenance"
+  | "Repairs"
+  | "Licenses"
+  | "Software"
+  | "PettyCash"
+  | "Housekeeping"
+  | "Uniforms"
+  | "Transport"
+  | "Miscellaneous";
+export type ExpenseStatus = "pending" | "approved" | "rejected";
+export type ExpenseRecurrence = "monthly" | "weekly" | null;
+export type ApprovalType =
+  | "purchase"
+  | "expense"
+  | "credit_note"
+  | "inventory_adjustment"
+  | "payroll";
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "changes_requested";
+export type NotificationType =
+  | "low_stock"
+  | "pending_credit"
+  | "vendor_payment_due"
+  | "high_variance"
+  | "attendance_issue"
+  | "payroll_due"
+  | "expense_pending"
+  | "purchase_pending"
+  | "food_cost_alert"
+  | "labor_cost_alert"
+  | "approval_required"
+  | "pnl_alert";
+export type DocumentCategory =
+  | "invoice"
+  | "credit_note"
+  | "vendor"
+  | "payroll"
+  | "attendance"
+  | "mis"
+  | "expense"
+  | "contract"
+  | "branch";
+export type PnlPeriod = "daily" | "weekly" | "monthly";
+export type AttendanceSource = "flip_office" | "csv" | "manual";
+
+export type Branch = {
+  id: string;
+  name: string;
+  code: string;
+  address: string | null;
+  managerName: string | null;
+  managerPhone: string | null;
+  settings: {
+    timezone: string;
+    currency: string;
+    targetFoodCostPercent: number;
+    targetLaborCostPercent: number;
+  };
+  status: "active" | "inactive";
+  createdAt: string;
+};
+
+export type Employee = {
+  id: string;
+  branchId: string;
+  flipOfficeId: string | null;
+  employeeCode: string;
+  name: string;
+  department: EmployeeDepartment;
+  designation: string;
+  outlet: string;
+  phone: string | null;
+  email: string | null;
+  dateOfJoining: string;
+  monthlySalary: number;
+  hourlyRate: number | null;
+  status: EmployeeStatus;
+  createdAt: string;
+};
+
+export type AttendanceRecord = {
+  id: string;
+  branchId: string;
+  employeeId: string;
+  employeeName: string;
+  employeeCode: string;
+  date: string;
+  checkIn: string | null;
+  checkOut: string | null;
+  hoursWorked: number;
+  overtimeHours: number;
+  status: AttendanceStatus;
+  source: AttendanceSource;
+  syncedAt: string;
+};
+
+export type PayrollLine = {
+  id: string;
+  payrollRunId: string;
+  employeeId: string;
+  employeeName: string;
+  baseSalary: number;
+  overtimePay: number;
+  deductions: number;
+  netPay: number;
+  daysPresent: number;
+  daysAbsent: number;
+};
+
+export type PayrollRun = {
+  id: string;
+  branchId: string;
+  periodStart: string;
+  periodEnd: string;
+  month: string;
+  outlet: string;
+  status: PayrollRunStatus;
+  totalGross: number;
+  totalDeductions: number;
+  totalNet: number;
+  employeeCount: number;
+  createdAt: string;
+  approvedAt: string | null;
+  createdBy: string;
+};
+
+export type OperatingExpense = {
+  id: string;
+  branchId: string;
+  date: string;
+  month: string;
+  category: ExpenseCategory;
+  vendorName: string | null;
+  description: string;
+  amountPaise: number;
+  outlet: string;
+  attachmentUrl: string | null;
+  status: ExpenseStatus;
+  isRecurring: boolean;
+  recurrence: ExpenseRecurrence;
+  createdBy: string;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  createdAt: string;
+  auditLog: { action: string; at: string; by: string; note?: string | null }[];
+};
+
+export type FlipOfficeSyncType =
+  | "attendance"
+  | "employees"
+  | "sales"
+  | "menu"
+  | "customers"
+  | "payments";
+
+export type FlipOfficeSyncLog = {
+  id: string;
+  syncType: FlipOfficeSyncType;
+  recordsImported: number;
+  recordsSkipped?: number;
+  errorCount?: number;
+  date: string;
+  status: "success" | "partial" | "failed";
+  message: string;
+  createdAt: string;
+};
+
+export type SaleSource = "manual" | "flip_office" | "csv";
+
+export type MonthlyMisSnapshot = {
+  month: string;
+  branchId: string;
+  revenue: number;
+  procurementSpend: number;
+  inventoryValue: number;
+  vendorOutstanding: number;
+  creditNotesApplied: number;
+  payrollCost: number;
+  laborCostPercent: number;
+  foodCostPercent: number;
+  operatingExpenses: number;
+  estimatedProfit: number;
+  estimatedProfitMargin: number;
+  attendanceRate: number;
+  headcount: number;
+  salesCount: number;
+};
+
+export type ApprovalRequest = {
+  id: string;
+  branchId: string;
+  type: ApprovalType;
+  entityId: string;
+  entityLabel: string;
+  referenceTable: string;
+  amountPaise: number;
+  requiredRole: ProcurementRole;
+  status: ApprovalStatus;
+  requestedBy: string;
+  reviewedBy: string | null;
+  note: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+};
+
+export type OsNotification = {
+  id: string;
+  branchId: string | null;
+  type: NotificationType;
+  title: string;
+  detail: string;
+  severity: "info" | "warning" | "critical";
+  read: boolean;
+  href: string | null;
+  createdAt: string;
+};
+
+export type NotificationPreferences = {
+  lowStock: boolean;
+  pendingCredit: boolean;
+  vendorPaymentDue: boolean;
+  highVariance: boolean;
+  attendanceIssue: boolean;
+  payrollDue: boolean;
+  expensePending: boolean;
+  purchasePending: boolean;
+  foodCostAlert: boolean;
+  laborCostAlert: boolean;
+  pendingApproval: boolean;
+  dailyMis: boolean;
+};
+
+export type VaultDocument = {
+  id: string;
+  branchId: string | null;
+  category: DocumentCategory;
+  folder: string;
+  title: string;
+  tags: string[];
+  dataUrl: string | null;
+  mimeType: string | null;
+  entityId: string | null;
+  createdAt: string;
+  createdBy: string;
+};
+
+export type PnlReport = {
+  id: string;
+  branchId: string;
+  period: PnlPeriod;
+  periodKey: string;
+  revenue: number;
+  foodCost: number;
+  laborCost: number;
+  operatingExpenses: number;
+  grossProfit: number;
+  netProfit: number;
+  profitPercent: number;
+  createdAt: string;
+};
+
+export type DailyMisReport = {
+  id: string;
+  branchId: string;
+  date: string;
+  sales: number;
+  ordersCount: number;
+  purchases: number;
+  attendanceRate: number;
+  attendancePresent: number;
+  attendanceAbsent: number;
+  attendanceLate: number;
+  lowStockCount: number;
+  pendingPayments: number;
+  pendingCredits: number;
+  foodCostPercent: number;
+  laborCostEst: number;
+  expensesTotal: number;
+  profitEstimate: number;
+  summaryText: string;
+  exportPdfUrl: string | null;
+  exportExcelUrl: string | null;
+  generatedAt: string;
+  createdAt: string;
+};
+
+export type MonthlyMisExecutiveSummary = {
+  month: string;
+  branchId: string;
+  salesSummary: string;
+  procurementSummary: string;
+  inventorySummary: string;
+  vendorSummary: string;
+  foodCostSummary: string;
+  laborCostSummary: string;
+  expenseSummary: string;
+  profitabilitySummary: string;
+  executiveSummary: string;
+};
+
 export type ProcurementDb = {
+  branches: Branch[];
   vendors: Vendor[];
   purchaseBills: PurchaseBill[];
   inventoryItems: InventoryItem[];
@@ -596,6 +1161,34 @@ export type ProcurementDb = {
   recoveryActivities: RecoveryActivity[];
   vendorDocuments: VendorDocument[];
   disputeNotes: DisputeNote[];
+  recipes: Recipe[];
+  recipeIngredients: RecipeIngredient[];
+  menuIngredients: MenuIngredient[];
+  menuRecipeIngredients: MenuRecipeIngredient[];
+  recipeCostSettings: RecipeCostSettings[];
+  recipeCostSnapshots: RecipeCostSnapshot[];
+  prepRecipes: PrepRecipe[];
+  prepIngredients: PrepIngredient[];
+  productionBatches: ProductionBatch[];
+  sales: Sale[];
+  vendorPayments: VendorPayment[];
+  stockVariances: StockVarianceRecord[];
+  employees: Employee[];
+  attendanceRecords: AttendanceRecord[];
+  payrollRuns: PayrollRun[];
+  payrollLines: PayrollLine[];
+  operatingExpenses: OperatingExpense[];
+  flipOfficeSyncLogs: FlipOfficeSyncLog[];
+  flipOfficeSettings: FlipOfficeIntegrationSettings;
+  flipSales: FlipSale[];
+  flipSaleItems: FlipSaleItem[];
+  flipCustomers: FlipCustomer[];
+  flipMenuMappings: FlipMenuMapping[];
+  approvalRequests: ApprovalRequest[];
+  notifications: OsNotification[];
+  notificationPreferences: NotificationPreferences;
+  vaultDocuments: VaultDocument[];
+  dailyMisReports: DailyMisReport[];
 };
 
 export type OcrBillResult = {

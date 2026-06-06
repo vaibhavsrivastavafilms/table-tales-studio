@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import PrepProductionView from "@/components/os/kitchen/PrepProductionView";
 
 export default function PrepProductionPage() {
-  return (
-    <OsPlaceholder
-      title="Prep Production"
-      description="Daily prep lists, batch production, and outlet allocation."
-    />
-  );
+  return <PrepProductionView />;
 }

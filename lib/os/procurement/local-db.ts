@@ -1,5 +1,6 @@
 "use client";
 
+import { coalesceBranchId } from "@/lib/os/branches";
 import { resolveItemByNameOrAlias, addItemAlias } from "@/lib/os/procurement/aliases";
 import { appendAuditEntry } from "@/lib/os/procurement/audit";
 import { appendAudit, normalizePurchaseItemLine } from "@/lib/os/procurement/bill-review";
@@ -10,6 +11,7 @@ import {
   loadStoredProcurementRaw,
   STORAGE_KEY,
 } from "@/lib/os/procurement/migrate";
+import { saveProcurementDbSafe } from "@/lib/os/procurement/persist";
 import { createSeedDb } from "@/lib/os/procurement/seed";
 import { convertToBaseUnit, addUnitConversion } from "@/lib/os/procurement/units";
 import type {
@@ -40,8 +42,7 @@ export function loadProcurementDb(): ProcurementDb {
 }
 
 export function saveProcurementDb(db: ProcurementDb): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  saveProcurementDbSafe(db);
 }
 
 export function findVendorByName(db: ProcurementDb, name: string): Vendor | undefined {
@@ -82,9 +83,11 @@ export function upsertVendorFromExtract(
     id: uid("vnd"),
     name: extract.name,
     gstNumber: extract.gstNumber,
+    panNumber: null,
     phone: extract.phone,
     address: extract.address,
     email: null,
+    contactPerson: null,
     paymentTermsDays: extract.paymentTermsDays,
     invoicePattern: extract.invoicePattern,
     category: "Food Supplier",
@@ -147,6 +150,7 @@ export function addPurchaseBillDraft(
 
   const purchaseBill: PurchaseBill = {
     id: uid("bill"),
+    branchId: bill.branchId ?? coalesceBranchId(),
     vendorId: bill.vendorId,
     vendorName: bill.vendorName,
     invoiceNumber: bill.invoiceNumber,
@@ -156,9 +160,11 @@ export function addPurchaseBillDraft(
     gstAmount: bill.gstAmount ?? bill.totalValue * 0.05,
     totalValue: bill.totalValue,
     extraCharges: bill.extraCharges ?? [],
-    imageDataUrl: bill.imageDataUrl,
-    pdfDataUrl: bill.pdfDataUrl ?? null,
-    ocrJson: bill.ocrJson ?? null,
+    document: bill.document ?? null,
+    ocrJsonUrl: bill.ocrJsonUrl ?? null,
+    imageDataUrl: null,
+    pdfDataUrl: null,
+    ocrJson: null,
     revisionParentId: bill.revisionParentId ?? null,
     items: items.map((i) => ({ ...i, billId: "" })),
     createdAt: new Date().toISOString(),
@@ -305,6 +311,7 @@ export function approvePurchaseBill(db: ProcurementDb, billId: string): Procurem
     const receivedQty = convertToBaseUnit(next, item.id, rawReceived, grnLine?.unit ?? item.unit);
     const movement = {
       id: uid("mov"),
+      branchId: refreshedBill.branchId,
       itemId: item.id,
       billId: refreshedBill.id,
       type: "purchase" as const,
@@ -360,6 +367,7 @@ export function approvePurchaseBill(db: ProcurementDb, billId: string): Procurem
   if (bill.vendorId) {
     next = appendLedger(next, bill.vendorId, {
       vendorId: bill.vendorId,
+      branchId: refreshedBill!.branchId,
       type: "purchase",
       referenceId: refreshedBill!.id,
       description: `Invoice ${refreshedBill!.invoiceNumber}`,
@@ -371,6 +379,7 @@ export function approvePurchaseBill(db: ProcurementDb, billId: string): Procurem
     if (vendor) {
       next = appendLedger(next, vendor.id, {
         vendorId: vendor.id,
+        branchId: refreshedBill!.branchId,
         type: "purchase",
         referenceId: bill.id,
         description: `Invoice ${refreshedBill!.invoiceNumber}`,
@@ -384,7 +393,7 @@ export function approvePurchaseBill(db: ProcurementDb, billId: string): Procurem
   const postedBill = next.purchaseBills.find((b) => b.id === billId)!;
   next = syncDisputesForBill(next, postedBill, "review");
 
-  if (postedBill.imageDataUrl || postedBill.pdfDataUrl) {
+  if (postedBill.document?.storageUrl) {
     next = {
       ...next,
       vendorDocuments: [
@@ -394,9 +403,10 @@ export function approvePurchaseBill(db: ProcurementDb, billId: string): Procurem
           billId: postedBill.id,
           disputeId: null,
           creditNoteId: null,
-          docType: postedBill.pdfDataUrl ? "invoice" : "invoice",
+          docType: "invoice",
           label: `Original invoice ${postedBill.invoiceNumber}`,
-          dataUrl: postedBill.pdfDataUrl ?? postedBill.imageDataUrl,
+          document: postedBill.document,
+          dataUrl: null,
           createdAt: new Date().toISOString(),
           createdBy: "system",
         },
@@ -443,8 +453,11 @@ export function applyCreditNote(
     creditNoteDate: note.creditNoteDate ?? new Date().toISOString().slice(0, 10),
     taxableAmount: note.taxableAmount ?? null,
     gstAmount: note.gstAmount ?? null,
-    pdfDataUrl: note.pdfDataUrl ?? null,
-    ocrJson: note.ocrJson ?? null,
+    document: note.document ?? null,
+    ocrJsonUrl: note.ocrJsonUrl ?? null,
+    imageDataUrl: null,
+    pdfDataUrl: null,
+    ocrJson: null,
     omissionId: note.omissionId ?? null,
   };
 
@@ -455,6 +468,7 @@ export function applyCreditNote(
 
   next = appendLedger(next, note.vendorId, {
     vendorId: note.vendorId,
+    branchId: note.branchId,
     type: "credit_note",
     referenceId: creditNote.id,
     description: `Credit note ${note.creditNoteNumber}`,
@@ -496,7 +510,7 @@ export function applyCreditNote(
     };
   }
 
-  if (note.imageDataUrl || note.pdfDataUrl) {
+  if (note.document?.storageUrl) {
     next = {
       ...next,
       vendorDocuments: [
@@ -508,7 +522,8 @@ export function applyCreditNote(
           creditNoteId: creditNote.id,
           docType: "credit_note",
           label: `Credit note ${note.creditNoteNumber}`,
-          dataUrl: note.pdfDataUrl ?? note.imageDataUrl,
+          document: note.document,
+          dataUrl: null,
           createdAt: new Date().toISOString(),
           createdBy: creditNote.createdBy,
         },
@@ -531,6 +546,7 @@ export function applyCreditNote(
         ...next.inventoryMovements,
         {
           id: uid("mov"),
+          branchId: note.branchId,
           itemId: item.id,
           billId: note.billId,
           type: "adjustment",
@@ -572,6 +588,7 @@ export function createInternalAdjustment(
   if (adj.vendorId) {
     next = appendLedger(next, adj.vendorId, {
       vendorId: adj.vendorId,
+      branchId: coalesceBranchId(),
       type: "adjustment",
       referenceId: row.id,
       description: `${adj.reason}: ${adj.itemName}`,
@@ -772,6 +789,7 @@ export function createGrnFromBill(
 
   const grn: GoodsReceivedNote = {
     id: uid("grn"),
+    branchId: bill.branchId,
     billId: bill.id,
     vendorId: bill.vendorId,
     vendorName: bill.vendorName,

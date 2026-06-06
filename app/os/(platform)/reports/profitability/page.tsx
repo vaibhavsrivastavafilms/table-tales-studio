@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import MonthlyMisView from "@/components/os/reports/MonthlyMisView";
 
 export default function ProfitabilityPage() {
-  return (
-    <OsPlaceholder
-      title="Profitability"
-      description="Contribution margin, outlet P&L snapshots, and trend analysis."
-    />
-  );
+  return <MonthlyMisView />;
 }

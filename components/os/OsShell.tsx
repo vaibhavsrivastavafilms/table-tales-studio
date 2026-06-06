@@ -6,6 +6,7 @@ type OsShellProps = {
   title: string;
   description?: string;
   userEmail?: string | null;
+  showBranchSelector?: boolean;
   children: React.ReactNode;
 };
 
@@ -13,21 +14,29 @@ export default function OsShell({
   title,
   description,
   userEmail,
+  showBranchSelector = false,
   children,
 }: OsShellProps) {
   return (
-    <div className="flex min-h-[100dvh] w-full">
-      <div className="hidden lg:flex">
+    <div className="flex min-h-[100dvh] w-full bg-[var(--os-bg)]">
+      <div className="hidden lg:flex lg:shrink-0">
         <OsSidebar />
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
-        <OsMobileHeader title={title} userEmail={userEmail} />
+        <OsMobileHeader
+          title={title}
+          userEmail={userEmail}
+          showBranchSelector={showBranchSelector}
+        />
         <OsTopBar
           title={title}
           description={description}
           userEmail={userEmail}
+          showBranchSelector={showBranchSelector}
         />
-        <main className="flex-1 overflow-y-auto os-scroll p-4 md:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto os-scroll p-4 md:p-6">
+          {children}
+        </main>
       </div>
     </div>
   );

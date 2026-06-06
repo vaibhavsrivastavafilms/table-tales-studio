@@ -1,5 +1,6 @@
 import { resolveItemByNameOrAlias } from "@/lib/os/procurement/aliases";
 import { applyOcrTotalsToBill } from "@/lib/os/procurement/bill-totals";
+import { coalesceBranchId } from "@/lib/os/branches";
 import { suggestCategory } from "@/lib/os/procurement/categories";
 import {
   addPurchaseBillDraft,
@@ -14,6 +15,7 @@ import type {
   OcrBillResult,
   ProcurementDb,
   PurchaseBill,
+  StoredDocumentRef,
   Vendor,
 } from "@/lib/os/procurement/types";
 
@@ -37,9 +39,11 @@ function ensureVendor(db: ProcurementDb, ocr: OcrBillResult): { db: ProcurementD
     id: uid("vnd"),
     name,
     gstNumber: ocr.vendorGst ?? null,
+    panNumber: null,
     phone: ocr.vendorPhone ?? null,
     address: ocr.vendorAddress ?? null,
     email: ocr.vendorEmail ?? null,
+    contactPerson: null,
     paymentTermsDays: 15,
     invoicePattern: null,
     category: "Food Supplier",
@@ -96,8 +100,8 @@ function ensureInventoryItems(
 export function processAutomatedBillUpload(
   db: ProcurementDb,
   ocr: OcrBillResult,
-  imageDataUrl: string | null,
-  pdfDataUrl: string | null = null
+  document: StoredDocumentRef | null,
+  ocrJsonUrl: string | null = null
 ): {
   db: ProcurementDb;
   bill: PurchaseBill;
@@ -120,6 +124,7 @@ export function processAutomatedBillUpload(
     PurchaseBill,
     "id" | "createdAt" | "postedAt" | "rejectedAt" | "editedAt" | "editedBy"
   > & { createdBy?: string } = {
+    branchId: coalesceBranchId(),
     vendorId: vendor.id,
     vendorName: vendor.name,
     invoiceNumber: ocr.invoiceNumber,
@@ -129,9 +134,11 @@ export function processAutomatedBillUpload(
     gstAmount: totals.gstAmount,
     totalValue: totals.totalValue,
     extraCharges: totals.extraCharges,
-    imageDataUrl,
-    pdfDataUrl,
-    ocrJson: JSON.stringify(ocr),
+    document,
+    ocrJsonUrl,
+    imageDataUrl: null,
+    pdfDataUrl: null,
+    ocrJson: null,
     revisionParentId: null,
     createdBy: "ocr",
     items: ocrLines.map((row) => {

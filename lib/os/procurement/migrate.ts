@@ -1,6 +1,13 @@
 import { normalizeAuditEntry } from "@/lib/os/procurement/audit";
 import { reconcileBillTotals } from "@/lib/os/procurement/bill-totals";
 import { migrateDisputesFromOmissions } from "@/lib/os/procurement/disputes";
+import { applyBranchMigration } from "@/lib/os/branches/migrate-branches";
+import { migrateFinanceV8 } from "@/lib/os/finance/migrate-expenses";
+import { migrateMenuV9 } from "@/lib/os/kitchen/migrate-menu-v9";
+import { ensureFlipOfficeDefaults } from "@/lib/os/integrations/flip-office/migrate";
+import { ensurePlatformDefaults } from "@/lib/os/platform/operations";
+import { migrateLegacyProcurementDocuments } from "@/lib/os/procurement/strip-payloads";
+import { saveProcurementDbSafe } from "@/lib/os/procurement/persist";
 import { createSeedDb } from "@/lib/os/procurement/seed";
 import { suggestCategory } from "@/lib/os/procurement/categories";
 import { normalizePurchaseItemLine } from "@/lib/os/procurement/bill-review";
@@ -21,13 +28,18 @@ const LEGACY_KEYS = [
   "tts:os:procurement:v2",
   "tts:os:procurement:v3",
   "tts:os:procurement:v4",
+  "tts:os:procurement:v6",
+  "tts:os:procurement:v7",
+  "tts:os:procurement:v8",
 ];
-export const STORAGE_KEY = "tts:os:procurement:v4";
+export const STORAGE_KEY = "tts:os:procurement:v9";
 
 function normalizeVendor(v: Vendor): Vendor {
   return {
     ...v,
     email: v.email ?? null,
+    panNumber: v.panNumber ?? null,
+    contactPerson: v.contactPerson ?? null,
     category: v.category ?? "Food Supplier",
     status: v.status ?? "active",
   };
@@ -71,8 +83,10 @@ function normalizeBill(b: PurchaseBill): PurchaseBill {
     gstAmount: reconciled.gstAmount,
     totalValue: reconciled.totalValue,
     extraCharges: reconciled.extraCharges,
-    pdfDataUrl: b.pdfDataUrl ?? null,
-    ocrJson: b.ocrJson ?? null,
+    document: b.document ?? null,
+    ocrJsonUrl: b.ocrJsonUrl ?? null,
+    pdfDataUrl: null,
+    ocrJson: null,
     rejectedAt: b.rejectedAt ?? null,
     revisionParentId: b.revisionParentId ?? null,
     createdBy: b.createdBy ?? "system",
@@ -142,6 +156,36 @@ export function migrateProcurementDb(raw: unknown): ProcurementDb {
     recoveryActivities: legacy.recoveryActivities ?? [],
     vendorDocuments: legacy.vendorDocuments ?? [],
     disputeNotes: legacy.disputeNotes ?? [],
+    recipes: legacy.recipes ?? seed.recipes,
+    recipeIngredients: legacy.recipeIngredients ?? seed.recipeIngredients,
+    prepRecipes: legacy.prepRecipes ?? seed.prepRecipes,
+    prepIngredients: legacy.prepIngredients ?? seed.prepIngredients,
+    productionBatches: legacy.productionBatches ?? [],
+    sales: legacy.sales ?? [],
+    vendorPayments: legacy.vendorPayments ?? [],
+    stockVariances: legacy.stockVariances ?? [],
+    employees: legacy.employees ?? seed.employees,
+    attendanceRecords: legacy.attendanceRecords ?? [],
+    payrollRuns: legacy.payrollRuns ?? [],
+    payrollLines: legacy.payrollLines ?? [],
+    operatingExpenses: legacy.operatingExpenses ?? seed.operatingExpenses,
+    flipOfficeSyncLogs: legacy.flipOfficeSyncLogs ?? [],
+    flipOfficeSettings: legacy.flipOfficeSettings ?? seed.flipOfficeSettings,
+    flipSales: legacy.flipSales ?? [],
+    flipSaleItems: legacy.flipSaleItems ?? [],
+    flipCustomers: legacy.flipCustomers ?? [],
+    flipMenuMappings: legacy.flipMenuMappings ?? [],
+    branches: legacy.branches ?? seed.branches,
+    approvalRequests: legacy.approvalRequests ?? [],
+    notifications: legacy.notifications ?? [],
+    notificationPreferences:
+      legacy.notificationPreferences ?? seed.notificationPreferences,
+    vaultDocuments: legacy.vaultDocuments ?? [],
+    dailyMisReports: legacy.dailyMisReports ?? [],
+    menuIngredients: legacy.menuIngredients ?? [],
+    menuRecipeIngredients: legacy.menuRecipeIngredients ?? [],
+    recipeCostSettings: legacy.recipeCostSettings ?? [],
+    recipeCostSnapshots: legacy.recipeCostSnapshots ?? [],
     omissionCases: (legacy.omissionCases ?? []).map((c) => {
       const bill = bills.find((b) => b.id === c.billId);
       return normalizeOmission(c as OmissionCase, bill);
@@ -152,8 +196,10 @@ export function migrateProcurementDb(raw: unknown): ProcurementDb {
       creditNoteDate: n.creditNoteDate ?? n.createdAt.slice(0, 10),
       taxableAmount: n.taxableAmount ?? null,
       gstAmount: n.gstAmount ?? null,
-      pdfDataUrl: n.pdfDataUrl ?? null,
-      ocrJson: n.ocrJson ?? null,
+      pdfDataUrl: null,
+      ocrJson: null,
+      document: n.document ?? null,
+      ocrJsonUrl: n.ocrJsonUrl ?? null,
       createdBy: n.createdBy ?? "system",
       items: n.items.map((i) => ({
         ...i,
@@ -163,7 +209,11 @@ export function migrateProcurementDb(raw: unknown): ProcurementDb {
     })),
   };
 
-  return migrateDisputesFromOmissions(migrated);
+  return ensureFlipOfficeDefaults(
+    ensurePlatformDefaults(
+      migrateMenuV9(migrateFinanceV8(applyBranchMigration(migrateDisputesFromOmissions(migrated))))
+    )
+  );
 }
 
 export function loadStoredProcurementRaw(): ProcurementDb {
@@ -173,8 +223,10 @@ export function loadStoredProcurementRaw(): ProcurementDb {
     const raw = localStorage.getItem(key);
     if (raw) {
       try {
-        const parsed = migrateProcurementDb(JSON.parse(raw));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        const parsed = migrateLegacyProcurementDocuments(
+          migrateProcurementDb(JSON.parse(raw))
+        );
+        saveProcurementDbSafe(parsed);
         return parsed;
       } catch {
         continue;
@@ -183,6 +235,6 @@ export function loadStoredProcurementRaw(): ProcurementDb {
   }
 
   const seed = createSeedDb();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
+  saveProcurementDbSafe(seed);
   return seed;
 }

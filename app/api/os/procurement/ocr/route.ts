@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { suggestCategory } from "@/lib/os/procurement/categories";
 import { extractBillFromFile } from "@/lib/os/procurement/ocr-extract";
-import type { OcrBillResult } from "@/lib/os/procurement/types";
+import {
+  PROCUREMENT_BUCKETS,
+  uploadProcurementFile,
+  uploadProcurementJson,
+} from "@/lib/os/procurement/server-document-store";
+import type { OcrBillResult, StoredDocumentRef } from "@/lib/os/procurement/types";
 
 export const runtime = "nodejs";
+
+function uid(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
 
 function mockOcr(filename: string): OcrBillResult {
   const taxable = 11850;
@@ -34,22 +43,15 @@ function mockOcr(filename: string): OcrBillResult {
   };
 }
 
+/** Full upload pipeline: store PDF/image → OCR → store OCR JSON → return refs only. */
 export async function POST(request: Request) {
   const form = await request.formData();
   const file = form.get("file");
   const filename =
     file instanceof File ? file.name : String(form.get("filename") ?? "bill.jpg");
+  const draftBillId = String(form.get("billId") ?? uid("bill"));
 
   const apiKey = process.env.OPENAI_API_KEY?.trim();
-
-  if (!apiKey) {
-    return NextResponse.json({
-      result: mockOcr(filename),
-      source: "mock",
-      warning:
-        "OPENAI_API_KEY is not set — showing demo data. Add your key to .env.local and restart the dev server.",
-    });
-  }
 
   if (!(file instanceof File)) {
     return NextResponse.json(
@@ -58,13 +60,56 @@ export async function POST(request: Request) {
     );
   }
 
+  let document: StoredDocumentRef;
   try {
-    const { result, source } = await extractBillFromFile(file, apiKey);
-    return NextResponse.json({ result, source, filename });
+    document = await uploadProcurementFile(file, PROCUREMENT_BUCKETS.documents, `bills/${draftBillId}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Document upload failed";
+    return NextResponse.json({ error: message, source: "error" }, { status: 500 });
+  }
+
+  if (!apiKey) {
+    const ocrJsonUrl = await uploadProcurementJson(
+      PROCUREMENT_BUCKETS.ocrJson,
+      mockOcr(filename),
+      { filename: `${draftBillId}.json`, folder: "bills" }
+    );
+    return NextResponse.json({
+      result: mockOcr(filename),
+      source: "mock",
+      document,
+      ocrJsonUrl,
+      billId: draftBillId,
+      warning:
+        "OPENAI_API_KEY is not set — showing demo data. Add your key to .env.local and restart the dev server.",
+    });
+  }
+
+  try {
+    const { result, source, pageCount } = await extractBillFromFile(file, apiKey);
+    if (pageCount && pageCount > 1) {
+      document = { ...document, pageCount };
+    }
+
+    const ocrJsonUrl = await uploadProcurementJson(
+      PROCUREMENT_BUCKETS.ocrJson,
+      result,
+      { filename: `${draftBillId}.json`, folder: "bills" }
+    );
+
+    return NextResponse.json({
+      result,
+      source,
+      filename,
+      document,
+      ocrJsonUrl,
+      billId: draftBillId,
+      pageCount: pageCount ?? 1,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "OCR extraction failed";
     console.error("[procurement/ocr]", message, error);
-    return NextResponse.json({ error: message, source: "error" }, { status: 422 });
+    return NextResponse.json({ error: message, source: "error", document }, { status: 422 });
   }
 }

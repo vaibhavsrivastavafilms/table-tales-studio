@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import PaymentsView from "@/components/os/procurement/PaymentsView";
 
 export default function PaymentsPage() {
-  return (
-    <OsPlaceholder
-      title="Payments"
-      description="Vendor payment runs, schedules, and reconciliation."
-    />
-  );
+  return <PaymentsView />;
 }

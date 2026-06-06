@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import RecipesView from "@/components/os/kitchen/RecipesView";
 
 export default function RecipesPage() {
-  return (
-    <OsPlaceholder
-      title="Recipes"
-      description="Standard recipes, yields, allergens, and costing foundations."
-    />
-  );
+  return <RecipesView />;
 }

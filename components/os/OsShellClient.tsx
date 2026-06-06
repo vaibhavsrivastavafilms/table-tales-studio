@@ -2,10 +2,12 @@
 
 import { usePathname } from "next/navigation";
 import OsShell from "@/components/os/OsShell";
+import { ProcurementProvider } from "@/components/os/procurement/ProcurementProvider";
 import { findOsNavItem } from "@/lib/os/navigation";
 
 const PAGE_COPY: Record<string, string> = {
-  "/os": "Overview of outlets, sales pulse, and operational alerts.",
+  "/os": "Executive snapshot — sales, profit, branches, and actions at a glance.",
+  "/os/owner": "Owner command center — full business health and approval queue.",
 };
 
 type OsShellClientProps = {
@@ -22,11 +24,18 @@ export default function OsShellClient({
   const title = navItem?.title ?? "Table Tales OS";
   const description =
     PAGE_COPY[pathname] ??
-    `${title} module — business logic ships in a future release.`;
+    `${title} module — operational data for your restaurant group.`;
 
   return (
-    <OsShell title={title} description={description} userEmail={userEmail}>
-      {children}
-    </OsShell>
+    <ProcurementProvider>
+      <OsShell
+        title={title}
+        description={description}
+        userEmail={userEmail}
+        showBranchSelector
+      >
+        {children}
+      </OsShell>
+    </ProcurementProvider>
   );
 }

@@ -7,6 +7,7 @@ import { Lock, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useProcurement } from "@/components/os/procurement/ProcurementProvider";
+import { isBillPdf, resolveBillDocumentUrl } from "@/lib/os/procurement/documents";
 import {
   formatInr,
   LineBadge,
@@ -305,24 +306,33 @@ export default function BillReviewView({ billId }: BillReviewViewProps) {
         </div>
 
         <div className="space-y-4">
-          {bill.pdfDataUrl ? (
-            <iframe
-              src={bill.pdfDataUrl}
-              title="Bill PDF"
-              className="os-card h-[420px] w-full rounded-2xl bg-white"
-            />
-          ) : bill.imageDataUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={bill.imageDataUrl}
-              alt="Bill scan"
-              className="os-card w-full object-cover"
-            />
-          ) : (
-            <div className="os-card flex h-40 items-center justify-center p-4 text-sm text-[var(--os-fg-muted-on-card)]">
-              Original OCR preserved in bill record
-            </div>
-          )}
+          {(() => {
+            const docUrl = resolveBillDocumentUrl(bill);
+            if (docUrl && isBillPdf(bill)) {
+              return (
+                <iframe
+                  src={docUrl}
+                  title="Bill PDF"
+                  className="os-card h-[420px] w-full rounded-2xl bg-white"
+                />
+              );
+            }
+            if (docUrl) {
+              return (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={docUrl}
+                  alt="Bill scan"
+                  className="os-card w-full object-cover"
+                />
+              );
+            }
+            return (
+              <div className="os-card flex h-40 items-center justify-center p-4 text-sm text-[var(--os-fg-muted-on-card)]">
+                Invoice stored externally — no inline preview
+              </div>
+            );
+          })()}
 
           <div className="os-card space-y-2 p-4">
             <LockLabel label="Invoice total (payable)" value={formatInr(bill.totalValue)} />
