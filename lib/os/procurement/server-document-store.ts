@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+import { getOsSession } from "@/lib/os/auth/server";
 import type { StoredDocumentRef } from "@/lib/os/procurement/types";
 
 export const PROCUREMENT_BUCKETS = {
@@ -52,6 +53,11 @@ export async function readLocalProcurementFile(
   }
 }
 
+async function resolveStorageUserFolder(): Promise<string> {
+  const session = await getOsSession();
+  return session?.userId ?? "anonymous";
+}
+
 export async function uploadProcurementBlob(
   bucket: ProcurementBucket,
   buffer: Buffer,
@@ -66,12 +72,12 @@ export async function uploadProcurementBlob(
   const storagePath = `${opts.folder ?? "uploads"}/${id}_${safeName}`;
 
   if (isSupabaseConfigured()) {
-    const supabase = await createServerClient();
-    const { data: userData } = await supabase.auth.getUser();
-    const userFolder = userData.user?.id ?? "anonymous";
+    const userFolder = await resolveStorageUserFolder();
     const fullPath = `${userFolder}/${storagePath}`;
 
-    const { error } = await supabase.storage.from(bucket).upload(fullPath, buffer, {
+    const storageClient = await createServerClient();
+
+    const { error } = await storageClient.storage.from(bucket).upload(fullPath, buffer, {
       contentType: opts.mimeType,
       upsert: true,
     });

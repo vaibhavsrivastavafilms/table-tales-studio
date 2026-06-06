@@ -1,4 +1,5 @@
 import type { ProcurementRole } from "@/lib/os/procurement/types";
+import type { OsSession } from "@/lib/os/auth/types";
 import { getOsSupabase } from "@/lib/os/repositories/base";
 
 export async function fetchOrgMemberRole(userId: string): Promise<ProcurementRole | null> {
@@ -29,6 +30,16 @@ export async function upsertOrgMemberRole(
     { onConflict: "user_id" }
   );
   if (error) throw new Error(`org_members upsert failed: ${error.message}`);
+}
+
+/** First authenticated user becomes org owner when no row exists yet. */
+export async function ensureInitialOrgOwner(session: OsSession): Promise<void> {
+  if (session.devBypass) return;
+
+  const existing = await fetchOrgMemberRole(session.userId);
+  if (existing) return;
+
+  await upsertOrgMemberRole(session.userId, "owner", "Table Tales Owner");
 }
 
 export async function listOrgMembers(): Promise<

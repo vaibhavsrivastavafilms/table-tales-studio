@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOsSession } from "@/lib/os/auth/server";
+import { OsUnauthorizedError, requireOsApiSession } from "@/lib/os/auth/server";
 import {
   fetchOrgMemberRole,
   upsertOrgMemberRole,
@@ -21,10 +21,16 @@ export async function GET() {
   }
 
   try {
-    const session = await requireOsSession();
+    const session = await requireOsApiSession();
     const role = (await fetchOrgMemberRole(session.userId)) ?? ("owner" as ProcurementRole);
-    return NextResponse.json({ role, source: "supabase" });
+    return NextResponse.json({
+      role,
+      source: session.devBypass ? "dev_bypass" : "supabase",
+    });
   } catch (error) {
+    if (error instanceof OsUnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     const message = error instanceof Error ? error.message : "Failed to load role.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -36,7 +42,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const session = await requireOsSession();
+    const session = await requireOsApiSession();
     const body = (await request.json()) as { role?: ProcurementRole };
     if (!body.role || !VALID_ROLES.includes(body.role)) {
       return NextResponse.json({ error: "Invalid role." }, { status: 400 });
@@ -45,6 +51,9 @@ export async function PUT(request: Request) {
     await upsertOrgMemberRole(session.userId, body.role, session.email);
     return NextResponse.json({ ok: true, role: body.role });
   } catch (error) {
+    if (error instanceof OsUnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     const message = error instanceof Error ? error.message : "Failed to save role.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

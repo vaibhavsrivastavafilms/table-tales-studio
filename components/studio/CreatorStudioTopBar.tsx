@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { memo } from "react";
+import TableTalesLogo from "@/components/brand/TableTalesLogo";
 
 type CreatorStudioTopBarProps = {
   saveLabel?: string | null;
@@ -24,7 +25,8 @@ function CreatorStudioTopBar({
   return (
     <header className="studio-topbar sticky top-0 z-40 flex shrink-0 items-center justify-between gap-4 border-b border-white/[0.06] px-4 py-3 backdrop-blur-xl md:px-6">
       <div className="min-w-0">
-        <Link href="/" className="group flex items-baseline gap-2">
+        <Link href="/" className="group flex items-center gap-3">
+          <TableTalesLogo size="xs" className="max-w-[72px]" />
           <span className="text-sm font-bold tracking-tight text-white md:text-base">
             Table Tales Studio
           </span>

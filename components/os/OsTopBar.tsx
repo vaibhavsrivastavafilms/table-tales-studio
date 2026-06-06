@@ -4,6 +4,7 @@ import { Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOsTheme } from "@/components/os/OsThemeProvider";
 import OsBranchSelectorSlot from "@/components/os/OsBranchSelectorSlot";
+import OsDevModeBanner from "@/components/os/OsDevModeBanner";
 
 type OsTopBarProps = {
   title: string;
@@ -29,6 +30,7 @@ export default function OsTopBar({
         ) : null}
       </div>
       <div className="flex items-center gap-2">
+        <OsDevModeBanner />
         {showBranchSelector ? <OsBranchSelectorSlot compact /> : null}
         {userEmail ? (
           <span className="hidden text-xs text-[var(--os-fg-subtle)] xl:inline">

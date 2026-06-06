@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import OsSidebar from "@/components/os/OsSidebar";
 import OsBranchSelectorSlot from "@/components/os/OsBranchSelectorSlot";
 import { useOsTheme } from "@/components/os/OsThemeProvider";
+import OsDevModeBanner from "@/components/os/OsDevModeBanner";
 
 type OsMobileHeaderProps = {
   title: string;
@@ -48,6 +49,7 @@ export default function OsMobileHeader({
         </div>
       </div>
       <div className="flex items-center gap-1">
+        <OsDevModeBanner />
         {showBranchSelector ? <OsBranchSelectorSlot compact /> : null}
         <Button
           variant="ghost"

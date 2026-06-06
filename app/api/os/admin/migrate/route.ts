@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireOsSession } from "@/lib/os/auth/server";
+import { OsUnauthorizedError, requireOsApiSession } from "@/lib/os/auth/server";
 import {
   migrateLocalProcurementDb,
 } from "@/lib/os/repositories/migration-service";
@@ -13,9 +13,12 @@ export async function GET() {
   }
 
   try {
-    await requireOsSession();
+    await requireOsApiSession();
     return NextResponse.json({ report: formatRepositoryAuditMarkdown() });
   } catch (error) {
+    if (error instanceof OsUnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     const message = error instanceof Error ? error.message : "Audit failed.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await requireOsSession();
+    await requireOsApiSession();
     const body = (await request.json()) as { db?: ProcurementDb };
     if (!body.db) {
       return NextResponse.json({ error: "Missing local db payload." }, { status: 400 });
@@ -40,6 +43,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof OsUnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
     const message = error instanceof Error ? error.message : "Migration failed.";
     return NextResponse.json({ error: message }, { status: 500 });
   }

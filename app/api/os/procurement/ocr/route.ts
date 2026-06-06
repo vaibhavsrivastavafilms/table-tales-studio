@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { OsUnauthorizedError, requireOsApiSession } from "@/lib/os/auth/server";
 import { suggestCategory } from "@/lib/os/procurement/categories";
 import { extractBillFromFile } from "@/lib/os/procurement/ocr-extract";
 import {
@@ -45,6 +46,15 @@ function mockOcr(filename: string): OcrBillResult {
 
 /** Full upload pipeline: store PDF/image → OCR → store OCR JSON → return refs only. */
 export async function POST(request: Request) {
+  try {
+    await requireOsApiSession();
+  } catch (error) {
+    if (error instanceof OsUnauthorizedError) {
+      return NextResponse.json({ error: error.message, source: "error" }, { status: 401 });
+    }
+    throw error;
+  }
+
   const form = await request.formData();
   const file = form.get("file");
   const filename =

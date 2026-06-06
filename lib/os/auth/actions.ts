@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createServerClient, isSupabaseConfigured } from "@/lib/supabase";
+import { ensureInitialOrgOwner } from "@/lib/os/repositories/org-member-repository";
 
 export type AuthActionState = {
   error?: string;
@@ -26,10 +27,23 @@ export async function signInWithEmail(
   }
 
   const supabase = await createServerClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (user) {
+    await ensureInitialOrgOwner({ userId: user.id, email: user.email ?? null });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[os/auth] signInWithPassword", {
+        userId: user.id,
+        email: user.email,
+      });
+    }
   }
 
   redirect("/os");

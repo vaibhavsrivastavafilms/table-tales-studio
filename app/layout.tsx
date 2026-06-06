@@ -6,6 +6,7 @@ import {
   buildRootHtmlClass,
   logServerRootHtmlClasses,
 } from "@/lib/hydrationDiagnostics";
+import { TABLE_TALES_LOGO_PATH } from "@/lib/brand/logo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -44,6 +45,10 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Table Tales Studio",
     description: "AI Food Storytelling Carousel Generator",
+  },
+  icons: {
+    icon: TABLE_TALES_LOGO_PATH,
+    apple: TABLE_TALES_LOGO_PATH,
   },
 };
 

@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import OsShellClient from "@/components/os/OsShellClient";
 import type { OsSession } from "@/lib/os/auth/server";
+import { getDevOsSession, isOsDevAuthBypass } from "@/lib/os/auth/dev-bypass";
 
 type OsLayoutBodyClientProps = {
   session: OsSession | null;
@@ -19,22 +20,24 @@ export default function OsLayoutBodyClient({
   const pathname = usePathname();
   const router = useRouter();
   const isAuthRoute = pathname.startsWith("/os/auth");
+  const devBypass = isOsDevAuthBypass();
+  const effectiveSession = session ?? (devBypass ? getDevOsSession() : null);
 
   useEffect(() => {
-    if (isAuthRoute || !supabaseConfigured || session) return;
+    if (devBypass || isAuthRoute || !supabaseConfigured || session) return;
     const next = pathname || "/os";
     router.replace(`/os/auth/login?next=${encodeURIComponent(next)}`);
-  }, [isAuthRoute, supabaseConfigured, session, pathname, router]);
+  }, [devBypass, isAuthRoute, supabaseConfigured, session, pathname, router]);
 
   if (isAuthRoute) {
     return <>{children}</>;
   }
 
-  if (supabaseConfigured && !session) {
+  if (!devBypass && supabaseConfigured && !session) {
     return null;
   }
 
   return (
-    <OsShellClient userEmail={session?.email ?? null}>{children}</OsShellClient>
+    <OsShellClient userEmail={effectiveSession?.email ?? null}>{children}</OsShellClient>
   );
 }

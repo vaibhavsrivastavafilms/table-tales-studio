@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { OS_NAV, type OsNavItem } from "@/lib/os/navigation";
+import TableTalesLogo from "@/components/brand/TableTalesLogo";
 import { countPendingApprovals } from "@/lib/os/approvals/engine";
 import { useProcurement } from "@/components/os/procurement/ProcurementProvider";
 
@@ -78,9 +79,7 @@ export default function OsSidebar({ onNavigate, className }: OsSidebarProps) {
       <div className="shrink-0 border-b border-[var(--os-border)] px-4 py-5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="os-brand truncate text-[1.65rem] leading-none text-white">
-              Table Tales
-            </p>
+            <TableTalesLogo size="sm" className="max-w-[140px]" priority />
             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--os-fg-subtle)]">
               Hospitality OS
             </p>
