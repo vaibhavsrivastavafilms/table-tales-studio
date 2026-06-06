@@ -24,6 +24,15 @@ import {
 } from "@/lib/os/owner/executive-dashboard";
 import { getProcurementRole } from "@/lib/os/procurement/permissions";
 import type { ApprovalType, OrgInsight, PnlPeriod } from "@/lib/os/procurement/types";
+import { ClickableKpiCard } from "@/components/os/shared/ClickableKpiCard";
+import TimeRangeSelector from "@/components/os/shared/TimeRangeSelector";
+import {
+  buildBranchComparisonMatrix,
+  resolveTimeRange,
+  type TimeRangeKey,
+} from "@/lib/os/analytics/time-intelligence";
+import { generateSmartPurchaseRecommendations } from "@/lib/os/procurement/purchase-intelligence";
+import { calculateBusinessReadiness } from "@/lib/os/platform/business-readiness";
 import { cn } from "@/lib/utils";
 
 const APPROVAL_LABELS: Record<ApprovalType, string> = {
@@ -58,20 +67,7 @@ function TrendBadge({ kpi }: { kpi: ExecutiveKpi }) {
 }
 
 function KpiCard({ kpi }: { kpi: ExecutiveKpi }) {
-  return (
-    <article className="os-exec-kpi group">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--os-fg-muted-on-card)]">
-        {kpi.label}
-      </p>
-      <p className="os-exec-kpi-value mt-3 tabular-nums">{kpi.display}</p>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <TrendBadge kpi={kpi} />
-        <span className="text-[11px] text-[var(--os-fg-muted-on-card)]">
-          vs {kpi.previousDisplay}
-        </span>
-      </div>
-    </article>
-  );
+  return <ClickableKpiCard kpi={kpi} />;
 }
 
 function HealthGrid({ title, metrics }: { title: string; metrics: HealthMetric[] }) {
@@ -201,12 +197,21 @@ function formatCompact(n: number): string {
 export default function ExecutiveCommandCenter() {
   const { db, activeBranchId, reviewApprovalRequest } = useProcurement();
   const [pnlPeriod, setPnlPeriod] = useState<PnlPeriod>("monthly");
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("this_month");
   const role = typeof window !== "undefined" ? getProcurementRole() : "owner";
 
   const data = useMemo(
     () => buildExecutiveDashboard(db, activeBranchId, pnlPeriod),
     [db, activeBranchId, pnlPeriod]
   );
+
+  const range = useMemo(() => resolveTimeRange(timeRange), [timeRange]);
+  const branchMatrix = useMemo(
+    () => buildBranchComparisonMatrix(db, range),
+    [db, range]
+  );
+  const purchaseRecs = useMemo(() => generateSmartPurchaseRecommendations(db, 6), [db]);
+  const readiness = useMemo(() => calculateBusinessReadiness(db), [db]);
 
   const pendingFlat = useMemo(
     () => listPendingApprovals(db, activeBranchId).slice(0, 6),
@@ -267,6 +272,12 @@ export default function ExecutiveCommandCenter() {
           <p className="mt-2 text-sm text-[var(--os-fg-muted)]">{todayLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/os/business-readiness" className="os-exec-pill">
+            Readiness {readiness.scores.overall}%
+          </Link>
+          <Link href="/os/ai-copilot" className="os-exec-pill">
+            AI Copilot
+          </Link>
           <Link href="/os/reports/pnl" className="os-exec-pill">
             P&L Report
           </Link>
@@ -292,6 +303,73 @@ export default function ExecutiveCommandCenter() {
           ))}
         </div>
       </section>
+
+      {/* Lifetime branch analytics */}
+      <section className="os-exec-panel overflow-x-auto">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="os-exec-section-title">Lifetime Branch Analytics</h2>
+            <p className="mt-1 text-sm text-[var(--os-fg-muted-on-card)]">
+              {range.label} · click any KPI above to drill into reports
+            </p>
+          </div>
+          <TimeRangeSelector value={timeRange} onChange={setTimeRange} />
+        </div>
+        <table className="mt-6 w-full min-w-[960px] text-sm">
+          <thead>
+            <tr className="border-b text-left text-xs uppercase text-[var(--os-fg-muted-on-card)]">
+              <th className="pb-2 pr-3">Branch</th>
+              <th className="pb-2 pr-3 text-right">Revenue</th>
+              <th className="pb-2 pr-3 text-right">Profit</th>
+              <th className="pb-2 pr-3 text-right">Food %</th>
+              <th className="pb-2 pr-3 text-right">Labor %</th>
+              <th className="pb-2 pr-3 text-right">Wastage</th>
+              <th className="pb-2 pr-3 text-right">Attendance</th>
+              <th className="pb-2 text-right">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {branchMatrix.map((row) => (
+              <tr key={row.branchId} className="border-b border-[var(--os-border)]/60">
+                <td className="py-2.5 pr-3 font-medium">{row.name.split(" ").slice(-1)[0]}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">{formatInr(row.revenue)}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">{formatInr(row.profit)}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">{row.foodCostPercent.toFixed(1)}%</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">{row.laborCostPercent.toFixed(1)}%</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">{formatInr(row.wastageValue)}</td>
+                <td className="py-2.5 pr-3 text-right tabular-nums">{row.attendanceRate.toFixed(0)}%</td>
+                <td className="py-2.5 text-right tabular-nums">{row.lifetimeContributionPercent.toFixed(0)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {/* Smart purchase recommendations */}
+      {purchaseRecs.length ? (
+        <section className="os-exec-panel">
+          <h2 className="os-exec-section-title">Smart Purchase Recommendations</h2>
+          <p className="mt-1 text-sm text-[var(--os-fg-muted-on-card)]">
+            Learned from OCR purchase history and consumption patterns
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {purchaseRecs.map((rec) => (
+              <Link
+                key={rec.id}
+                href="/os/procurement/analytics"
+                className="rounded-xl border border-[var(--os-border)] bg-white/50 p-4 transition hover:border-[#C9A84C]"
+              >
+                <p className="font-semibold">{rec.itemName}</p>
+                <p className="mt-1 text-sm text-[var(--os-fg-muted-on-card)]">{rec.reason}</p>
+                <p className="mt-2 text-sm tabular-nums">
+                  Reorder {rec.suggestedQty}
+                  {rec.unit} · est. {formatInr(rec.estimatedCost)}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* SECTION 2 — Branch Performance */}
       <section className="os-exec-panel">

@@ -5,6 +5,7 @@ import type {
   FlipSale,
   FlipSaleItem,
 } from "@/lib/os/integrations/flip-office/types";
+import type { PlatformSetupProfile } from "@/lib/os/platform/setup-profile";
 
 export type PurchaseStatus = "draft" | "verified" | "posted" | "rejected";
 export type VendorStatus = "active" | "inactive";
@@ -1184,6 +1185,7 @@ export type ProcurementDb = {
   flipSaleItems: FlipSaleItem[];
   flipCustomers: FlipCustomer[];
   flipMenuMappings: FlipMenuMapping[];
+  platformSetup: PlatformSetupProfile;
   approvalRequests: ApprovalRequest[];
   notifications: OsNotification[];
   notificationPreferences: NotificationPreferences;

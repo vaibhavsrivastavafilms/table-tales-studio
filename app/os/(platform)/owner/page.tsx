@@ -1,5 +1,5 @@
-import OwnerDashboardView from "@/components/os/owner/OwnerDashboardView";
+import ExecutiveCommandCenter from "@/components/os/owner/ExecutiveCommandCenter";
 
 export default function OwnerPage() {
-  return <OwnerDashboardView />;
+  return <ExecutiveCommandCenter />;
 }

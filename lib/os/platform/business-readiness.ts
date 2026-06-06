@@ -37,11 +37,33 @@ export type ReadinessChecklist = {
   items: ReadinessCheckItem[];
 };
 
+export type BranchReadinessCategories = {
+  salesData: number;
+  recipeData: number;
+  ingredientCosts: number;
+  inventoryAccuracy: number;
+  vendorData: number;
+  attendanceData: number;
+  payrollData: number;
+  wastageData: number;
+  expenseData: number;
+};
+
+export type BranchReadinessDetail = {
+  branchId: string;
+  name: string;
+  shortName: string;
+  overall: number;
+  categories: BranchReadinessCategories;
+  missing: ReadinessCheckItem[];
+};
+
 export type BranchReadinessRow = {
   branchId: string;
   name: string;
   overall: number;
   gaps: string[];
+  categories: BranchReadinessCategories;
 };
 
 export type SmartQuestion = {
@@ -59,6 +81,7 @@ export type BusinessReadinessReport = {
   missingMedium: ReadinessCheckItem[];
   missingLow: ReadinessCheckItem[];
   branchRows: BranchReadinessRow[];
+  branchDetails: BranchReadinessDetail[];
   smartQuestions: SmartQuestion[];
   overallLabel: string;
 };
@@ -73,17 +96,127 @@ function avg(nums: number[]): number {
   return Math.round(nums.reduce((s, n) => s + n, 0) / nums.length);
 }
 
+function branchShortName(name: string): string {
+  if (name.includes("Prahladnagar")) return "Prahladnagar";
+  if (name.includes("SBR")) return "SBR";
+  if (name.includes("Nikol")) return "Nikol";
+  if (name.includes("Central") || name.includes("Pure Foods")) return "Pure Foods";
+  return name;
+}
+
+function scoreBranchCategories(
+  db: ProcurementDb,
+  branchId: string
+): BranchReadinessCategories {
+  const month = new Date().toISOString().slice(0, 7);
+  const sales = filterByBranch(db.sales, branchId);
+  const employees = filterByBranch(db.employees, branchId);
+  const attendance = filterByBranch(db.attendanceRecords, branchId);
+  const expenses = filterByBranch(db.operatingExpenses, branchId);
+  const opening = db.openingStock;
+  const wastage = filterByBranch(db.inventoryMovements, branchId).filter(
+    (m) => m.type === "wastage"
+  );
+  const menuRows = listMenuOverviewRows(db);
+  const costed = menuRows.filter((r) => r.costed).length;
+  const ingredientsRated = db.menuIngredients.filter((i) => i.costPerUnitPaise > 0).length;
+  const ingredientsTotal = db.menuIngredients.length || 1;
+  const vendorsGst = db.vendors.filter((v) => v.gstNumber?.trim()).length;
+  const vendorsTotal = db.vendors.length || 1;
+  const payrollOk = db.payrollRuns.some((p) => p.month === month);
+
+  return {
+    salesData: sales.length > 0 ? 100 : 0,
+    recipeData: pct(costed, Math.max(menuRows.length, 1)),
+    ingredientCosts: pct(ingredientsRated, ingredientsTotal),
+    inventoryAccuracy: pct(opening.length > 0 ? 1 : 0, 1),
+    vendorData: pct(vendorsGst, vendorsTotal),
+    attendanceData: employees.length
+      ? pct(attendance.filter((a) => a.date.startsWith(month)).length, employees.length * 4)
+      : 0,
+    payrollData: payrollOk ? 100 : employees.length ? 40 : 0,
+    wastageData: wastage.length > 0 ? 100 : 50,
+    expenseData: expenses.length >= 2 ? 100 : pct(expenses.length, 2),
+  };
+}
+
 function item(
   partial: Omit<ReadinessCheckItem, "complete"> & { complete: boolean }
 ): ReadinessCheckItem {
   return partial;
 }
 
+export function calculateBranchReadinessDetail(
+  db: ProcurementDb,
+  branchId: string
+): BranchReadinessDetail {
+  const branch = db.branches.find((b) => b.id === branchId);
+  const categories = scoreBranchCategories(db, branchId);
+  const catScores = Object.values(categories);
+  const overall = Math.round(catScores.reduce((s, n) => s + n, 0) / catScores.length);
+
+  const missing: ReadinessCheckItem[] = [];
+  if (categories.salesData < 100) {
+    missing.push(
+      item({
+        id: `${branchId}_sales`,
+        checklistId: "sales",
+        title: "Sales data missing",
+        complete: false,
+        message: "No sales recorded for this branch",
+        actionHref: "/os/integrations/flip-office",
+        actionLabel: "Connect POS",
+        affectedMetrics: ["Revenue", "Profitability"],
+        priority: "high",
+      })
+    );
+  }
+  if (categories.ingredientCosts < 60) {
+    missing.push(
+      item({
+        id: `${branchId}_rates`,
+        checklistId: "ingredient_costing",
+        title: "Ingredient rates incomplete",
+        complete: false,
+        message: "Purchase rates needed for food cost accuracy",
+        actionHref: "/os/recipes/ingredients",
+        actionLabel: "Update Rates",
+        affectedMetrics: ["Food Cost %"],
+        priority: "high",
+      })
+    );
+  }
+  if (categories.inventoryAccuracy < 100) {
+    missing.push(
+      item({
+        id: `${branchId}_opening`,
+        checklistId: "opening_stock",
+        title: "Opening stock missing",
+        complete: false,
+        message: "Baseline inventory not captured",
+        actionHref: "/os/inventory/opening-stock",
+        actionLabel: "Opening Stock",
+        affectedMetrics: ["Inventory Value", "Variance"],
+        priority: "high",
+      })
+    );
+  }
+
+  return {
+    branchId,
+    name: branch?.name ?? branchId,
+    shortName: branchShortName(branch?.name ?? branchId),
+    overall,
+    categories,
+    missing,
+  };
+}
+
 export function calculateBusinessReadiness(
   db: ProcurementDb,
   branchId = "all"
 ): BusinessReadinessReport {
-  const scoped = filterByBranch(db, branchId);
+  const scopedSales = filterByBranch(db.sales, branchId);
   const month = new Date().toISOString().slice(0, 7);
 
   const vendorsWithGst = db.vendors.filter((v) => v.gstNumber?.trim()).length;
@@ -251,10 +384,10 @@ export function calculateBusinessReadiness(
       id: "sales_recorded",
       checklistId: "sales",
       title: "Sales transactions recorded",
-      complete: scoped.sales.length > 0,
+      complete: scopedSales.length > 0,
       message:
-        scoped.sales.length > 0
-          ? `${scoped.sales.length} sales records`
+        scopedSales.length > 0
+          ? `${scopedSales.length} sales records`
           : "No sales data — metrics will show Waiting for Data",
       actionHref: "/os/operations/sales",
       actionLabel: "Record Sales",
@@ -468,15 +601,20 @@ export function calculateBusinessReadiness(
     scores.profitability,
   ]);
 
-  const branchRows: BranchReadinessRow[] = db.branches.map((branch) => {
-    const branchReport = calculateBusinessReadiness(db, branch.id);
-    return {
-      branchId: branch.id,
-      name: branch.name,
-      overall: branchReport.scores.overall,
-      gaps: branchReport.missingHigh.slice(0, 3).map((g) => g.title),
-    };
-  });
+  const branchDetails =
+    branchId === "all"
+      ? db.branches
+          .filter((b) => b.status === "active")
+          .map((branch) => calculateBranchReadinessDetail(db, branch.id))
+      : [calculateBranchReadinessDetail(db, branchId)];
+
+  const branchRows: BranchReadinessRow[] = branchDetails.map((detail) => ({
+    branchId: detail.branchId,
+    name: detail.name,
+    overall: detail.overall,
+    gaps: detail.missing.slice(0, 3).map((g) => g.title),
+    categories: detail.categories,
+  }));
 
   const smartQuestions: SmartQuestion[] = [
     {
@@ -541,6 +679,7 @@ export function calculateBusinessReadiness(
     missingMedium: missing.filter((m) => m.priority === "medium"),
     missingLow: missing.filter((m) => m.priority === "low"),
     branchRows,
+    branchDetails,
     smartQuestions,
     overallLabel,
   };

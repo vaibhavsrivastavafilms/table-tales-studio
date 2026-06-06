@@ -5,6 +5,7 @@ import { applyBranchMigration } from "@/lib/os/branches/migrate-branches";
 import { migrateFinanceV8 } from "@/lib/os/finance/migrate-expenses";
 import { migrateMenuV9 } from "@/lib/os/kitchen/migrate-menu-v9";
 import { ensureFlipOfficeDefaults } from "@/lib/os/integrations/flip-office/migrate";
+import { ensurePlatformSetup } from "@/lib/os/platform/setup-profile";
 import { ensurePlatformDefaults } from "@/lib/os/platform/operations";
 import { migrateLegacyProcurementDocuments } from "@/lib/os/procurement/strip-payloads";
 import { saveProcurementDbSafe } from "@/lib/os/procurement/persist";
@@ -175,6 +176,7 @@ export function migrateProcurementDb(raw: unknown): ProcurementDb {
     flipSaleItems: legacy.flipSaleItems ?? [],
     flipCustomers: legacy.flipCustomers ?? [],
     flipMenuMappings: legacy.flipMenuMappings ?? [],
+    platformSetup: legacy.platformSetup ?? seed.platformSetup,
     branches: legacy.branches ?? seed.branches,
     approvalRequests: legacy.approvalRequests ?? [],
     notifications: legacy.notifications ?? [],
@@ -209,9 +211,11 @@ export function migrateProcurementDb(raw: unknown): ProcurementDb {
     })),
   };
 
-  return ensureFlipOfficeDefaults(
-    ensurePlatformDefaults(
-      migrateMenuV9(migrateFinanceV8(applyBranchMigration(migrateDisputesFromOmissions(migrated))))
+  return ensurePlatformSetup(
+    ensureFlipOfficeDefaults(
+      ensurePlatformDefaults(
+        migrateMenuV9(migrateFinanceV8(applyBranchMigration(migrateDisputesFromOmissions(migrated))))
+      )
     )
   );
 }

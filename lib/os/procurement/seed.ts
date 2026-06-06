@@ -2,6 +2,7 @@ import type { ProcurementDb } from "@/lib/os/procurement/types";
 import { createDefaultBranches } from "@/lib/os/branches";
 import { defaultNotificationPreferences } from "@/lib/os/branches/migrate-branches";
 import { defaultFlipOfficeSettings } from "@/lib/os/integrations/flip-office/defaults";
+import { defaultPlatformSetup } from "@/lib/os/platform/setup-profile";
 
 export function createSeedDb(): ProcurementDb {
   const now = new Date().toISOString();
@@ -338,6 +339,7 @@ export function createSeedDb(): ProcurementDb {
     flipSaleItems: [],
     flipCustomers: [],
     flipMenuMappings: [],
+    platformSetup: defaultPlatformSetup(),
     approvalRequests: [],
     notifications: [],
     notificationPreferences: defaultNotificationPreferences(),

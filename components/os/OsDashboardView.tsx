@@ -57,6 +57,26 @@ export default function OsDashboardView() {
       </div>
 
       <section className="os-card p-5">
+        <h3 className="text-sm font-semibold text-[var(--os-fg-on-card)]">Owner intelligence</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {[
+            ["/os/owner", "Owner Command Center"],
+            ["/os/business-readiness", "Business Readiness"],
+            ["/os/setup", "Setup Wizard"],
+            ["/os/ai-copilot", "AI Copilot"],
+          ].map(([href, label]) => (
+            <Link
+              key={href}
+              href={href}
+              className="rounded-full border border-[var(--os-border)] px-3 py-1 text-xs font-medium hover:bg-white/50"
+            >
+              {label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="os-card p-5">
         <h3 className="text-sm font-semibold text-[var(--os-fg-on-card)]">Quick links</h3>
         <div className="mt-3 flex flex-wrap gap-2">
           {[

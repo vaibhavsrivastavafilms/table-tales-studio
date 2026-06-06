@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useProcurement } from "@/components/os/procurement/ProcurementProvider";
 import { PageHeader } from "@/components/os/procurement/ProcurementUi";
 import {
@@ -75,9 +76,10 @@ function ChecklistCard({
 }
 
 export default function SetupWizardView() {
-  const { db } = useProcurement();
+  const { db, savePlatformSetup } = useProcurement();
   const report = useMemo(() => calculateBusinessReadiness(db), [db]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const setup = db.platformSetup;
 
   function saveAnswer(id: string, value: string) {
     setAnswers((prev) => ({ ...prev, [id]: value }));
@@ -101,10 +103,179 @@ export default function SetupWizardView() {
             <p className="text-sm text-[#1B3A2D]/70">{report.overallLabel}</p>
           </div>
           <Button asChild variant="secondary">
-            <Link href="/os/owner/readiness">Owner readiness view</Link>
+            <Link href="/os/business-readiness">Business readiness</Link>
           </Button>
         </div>
         <ProgressBar value={report.scores.overall} />
+      </section>
+
+      <section className="os-card space-y-5 p-6">
+        <h2 className="text-lg font-semibold text-[#1B3A2D]">Master data onboarding</h2>
+        <p className="text-sm text-[var(--os-fg-muted-on-card)]">
+          Capture operating assumptions used across food cost targets, labor planning, and profitability models.
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Target food cost %</span>
+            <Input
+              type="number"
+              defaultValue={setup.globalTargets.foodCostPercent}
+              onBlur={(e) =>
+                savePlatformSetup({
+                  globalTargets: {
+                    ...setup.globalTargets,
+                    foodCostPercent: Number(e.target.value) || 32,
+                  },
+                })
+              }
+              className="bg-white/90"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Target labor cost %</span>
+            <Input
+              type="number"
+              defaultValue={setup.globalTargets.laborCostPercent}
+              onBlur={(e) =>
+                savePlatformSetup({
+                  globalTargets: {
+                    ...setup.globalTargets,
+                    laborCostPercent: Number(e.target.value) || 22,
+                  },
+                })
+              }
+              className="bg-white/90"
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="font-medium">Target net margin %</span>
+            <Input
+              type="number"
+              defaultValue={setup.globalTargets.netMarginPercent}
+              onBlur={(e) =>
+                savePlatformSetup({
+                  globalTargets: {
+                    ...setup.globalTargets,
+                    netMarginPercent: Number(e.target.value) || 18,
+                  },
+                })
+              }
+              className="bg-white/90"
+            />
+          </label>
+        </div>
+        <div className="grid gap-4">
+          {db.branches
+            .filter((b) => b.status === "active")
+            .map((branch) => {
+              const profile = setup.branchProfiles[branch.id] ?? {};
+              return (
+                <div
+                  key={branch.id}
+                  className="rounded-xl border border-[var(--os-border)] bg-white/50 p-4"
+                >
+                  <p className="font-semibold text-[#1B3A2D]">{branch.name}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <label className="space-y-1 text-xs">
+                      Seat count
+                      <Input
+                        type="number"
+                        defaultValue={profile.seatCount ?? ""}
+                        onBlur={(e) =>
+                          savePlatformSetup({
+                            branchProfiles: {
+                              [branch.id]: {
+                                ...profile,
+                                seatCount: Number(e.target.value) || null,
+                              },
+                            },
+                          })
+                        }
+                        className="bg-white/90"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs">
+                      Kitchen capacity
+                      <Input
+                        defaultValue={profile.kitchenCapacity ?? ""}
+                        placeholder="e.g. 120 covers/shift"
+                        onBlur={(e) =>
+                          savePlatformSetup({
+                            branchProfiles: {
+                              [branch.id]: {
+                                ...profile,
+                                kitchenCapacity: e.target.value || null,
+                              },
+                            },
+                          })
+                        }
+                        className="bg-white/90"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs">
+                      Operating hours
+                      <Input
+                        defaultValue={profile.operatingHours ?? ""}
+                        placeholder="11:00 – 23:00"
+                        onBlur={(e) =>
+                          savePlatformSetup({
+                            branchProfiles: {
+                              [branch.id]: {
+                                ...profile,
+                                operatingHours: e.target.value || null,
+                              },
+                            },
+                          })
+                        }
+                        className="bg-white/90"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs">
+                      Monthly expense budget (₹)
+                      <Input
+                        type="number"
+                        defaultValue={
+                          profile.expenseBudgetPaise
+                            ? profile.expenseBudgetPaise / 100
+                            : ""
+                        }
+                        onBlur={(e) =>
+                          savePlatformSetup({
+                            branchProfiles: {
+                              [branch.id]: {
+                                ...profile,
+                                expenseBudgetPaise: Math.round(Number(e.target.value) * 100) || null,
+                              },
+                            },
+                          })
+                        }
+                        className="bg-white/90"
+                      />
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/os/procurement/vendors">Vendor details</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/os/inventory/opening-stock">Opening inventory</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/os/hr/employees">Employee salaries</Link>
+          </Button>
+          <Button
+            className="bg-[#1B3A2D] text-white hover:bg-[#153024]"
+            onClick={() =>
+              savePlatformSetup({ completedAt: new Date().toISOString() })
+            }
+          >
+            Mark setup complete
+          </Button>
+        </div>
       </section>
 
       {report.checklists.map((checklist) => (

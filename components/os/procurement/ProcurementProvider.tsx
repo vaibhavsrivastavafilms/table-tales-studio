@@ -119,6 +119,7 @@ import {
 import { resolveItemByNameOrAlias } from "@/lib/os/procurement/aliases";
 import { applyOcrTotalsToBill } from "@/lib/os/procurement/bill-totals";
 import { suggestCategory } from "@/lib/os/procurement/categories";
+import { mergePlatformSetup, type PlatformSetupProfile } from "@/lib/os/platform/setup-profile";
 import {
   importFlipOfficeSalesCsv as importFlipCsv,
   setManualMenuMapping,
@@ -248,6 +249,7 @@ type ProcurementContextValue = {
   ) => Promise<FlipOfficeSyncResult[]>;
   importFlipOfficeSalesCsv: (csvText: string) => Promise<FlipOfficeSyncResult>;
   mapFlipMenuItem: (menuItemName: string, recipeId: string) => void;
+  savePlatformSetup: (patch: Partial<PlatformSetupProfile>) => void;
 };
 
 function getActor(fallback: string): string {
@@ -667,6 +669,11 @@ export function ProcurementProvider({ children }: { children: React.ReactNode })
       },
       mapFlipMenuItem: (menuItemName, recipeId) =>
         mutate((d) => setManualMenuMapping(d, menuItemName, recipeId)),
+      savePlatformSetup: (patch) =>
+        mutate((d) => ({
+          ...d,
+          platformSetup: mergePlatformSetup(d.platformSetup, patch),
+        })),
     };
   }, [db, activeBranchId, setActiveBranch, refresh, buildBillFromOcr, matchStockLines, persist, mutate]);
 
