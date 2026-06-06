@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { mergeAiSlideCopy, runStoryEnginePipeline } from "@/lib/story-engine/story-engine";
 import { scoreCarouselProject } from "@/lib/story-engine/scoring-engine";
+import { storyEngineInputSchema } from "@/lib/story-engine/schema";
 import type { SlideRole, StoryEngineInput } from "@/lib/story-engine/types";
 import {
   clientIp,
@@ -25,23 +26,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const body = parsed.data as StoryEngineInput & Record<string, unknown>;
-  const input: StoryEngineInput = {
-    topic: typeof body.topic === "string" ? body.topic.slice(0, 200) : undefined,
-    goal: typeof body.goal === "string" ? body.goal.slice(0, 200) : undefined,
-    audience: typeof body.audience === "string" ? body.audience.slice(0, 200) : undefined,
-    platform: typeof body.platform === "string" ? body.platform.slice(0, 80) : undefined,
-    brand: typeof body.brand === "string" ? body.brand.slice(0, 120) : undefined,
-    framework: body.framework as StoryEngineInput["framework"],
-    templateName:
-      typeof body.templateName === "string" ? body.templateName.slice(0, 80) : undefined,
-    imageCount:
-      typeof body.imageCount === "number" ? Math.min(12, Math.max(1, body.imageCount)) : 6,
-    visualSummary:
-      typeof body.visualSummary === "string" ? body.visualSummary.slice(0, 600) : undefined,
-    viralMode: typeof body.viralMode === "string" ? body.viralMode.slice(0, 40) : undefined,
-    captionTone: typeof body.captionTone === "string" ? body.captionTone.slice(0, 40) : undefined,
-  };
+  const validated = storyEngineInputSchema.safeParse(parsed.data);
+  if (!validated.success) {
+    return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+  }
+  const input: StoryEngineInput = validated.data;
 
   const ip = clientIp(req);
   const rate = checkRateLimit(`story-engine:${ip}`, 15, 60_000);

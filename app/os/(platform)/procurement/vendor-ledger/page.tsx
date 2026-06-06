@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import VendorLedgerView from "@/components/os/procurement/VendorLedgerView";
 
 export default function VendorLedgerPage() {
-  return (
-    <OsPlaceholder
-      title="Vendor Ledger"
-      description="Outstanding balances, credits, and account statements."
-    />
-  );
+  return <VendorLedgerView />;
 }

@@ -6,8 +6,11 @@ import {
 import type { EmotionalStyleProfile } from "@/lib/emotionalStylingEngine";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import type { TemplateId } from "@/lib/templates";
-import { isDoodleStoryTemplate } from "@/lib/templates";
+import {
+  isDoodleStoryTemplate,
+  type TemplateId,
+} from "@/lib/templates";
+
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 
 export type EditorialCompositionKind =

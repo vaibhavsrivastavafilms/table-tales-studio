@@ -192,3 +192,10 @@ export function createIdleProgress(): GenerationProgressSnapshot {
     slideStates: initialSlideStates(),
   };
 }
+
+export const STORY_GENERATION_META = {
+  label: "Generating story",
+  description: "Writing captions and carousel narrative",
+  glow: "#f4c430",
+  percent: 42,
+} as const;

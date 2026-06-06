@@ -296,6 +296,11 @@ body {
   z-index: -1;
 }
 
+.builder-export-rack--carousel {
+  width: 1080px;
+  height: 1350px;
+}
+
 .builder-stage {
   min-height: 200px;
 }
@@ -397,6 +402,22 @@ body {
   );
   background-size: 200% 100%;
   animation: builder-gen-shimmer 2.4s ease-in-out infinite;
+}
+
+.builder-gen-indeterminate {
+  animation: builder-gen-indeterminate 1.8s ease-in-out infinite;
+}
+
+@keyframes builder-gen-indeterminate {
+  0% {
+    transform: translateX(-8%);
+  }
+  50% {
+    transform: translateX(220%);
+  }
+  100% {
+    transform: translateX(-8%);
+  }
 }
 
 @keyframes builder-gen-shimmer {

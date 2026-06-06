@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   getProcurementRole,
+  loadProcurementRoleFromServer,
   roleLabel,
   setProcurementRole,
 } from "@/lib/os/procurement/permissions";
@@ -16,10 +18,12 @@ const ROLES: ProcurementRole[] = [
 ];
 
 export function useProcurementActor() {
-  if (typeof window === "undefined") {
-    return { role: "owner" as ProcurementRole, userId: "system", userName: "System" };
-  }
-  const role = getProcurementRole();
+  const [role, setRole] = useState<ProcurementRole>("owner");
+
+  useEffect(() => {
+    void loadProcurementRoleFromServer().then(setRole);
+  }, []);
+
   return {
     role,
     userId: role,
@@ -28,7 +32,13 @@ export function useProcurementActor() {
 }
 
 export default function ProcurementRoleBar() {
-  const role = typeof window !== "undefined" ? getProcurementRole() : "owner";
+  const [role, setRole] = useState<ProcurementRole>(() =>
+    typeof window !== "undefined" ? getProcurementRole() : "owner"
+  );
+
+  useEffect(() => {
+    void loadProcurementRoleFromServer().then(setRole);
+  }, []);
 
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -36,7 +46,11 @@ export default function ProcurementRoleBar() {
       <select
         className="rounded-md border border-[var(--os-border)] bg-white/90 px-2 py-1 text-[var(--os-fg-on-card)]"
         value={role}
-        onChange={(e) => setProcurementRole(e.target.value as ProcurementRole)}
+        onChange={(e) => {
+          const next = e.target.value as ProcurementRole;
+          setRole(next);
+          void setProcurementRole(next);
+        }}
       >
         {ROLES.map((r) => (
           <option key={r} value={r}>

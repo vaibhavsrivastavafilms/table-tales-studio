@@ -47,3 +47,17 @@ export function isUploadBusy(phase: UploadUiPhase): boolean {
     phase === "fallback"
   );
 }
+
+/** Approximate upload pipeline progress for the top progress bar. */
+export function uploadPhasePercent(phase: UploadUiPhase): number {
+  switch (phase) {
+    case "uploading":
+      return 38;
+    case "optimizing":
+      return 72;
+    case "fallback":
+      return 88;
+    default:
+      return 0;
+  }
+}

@@ -1,6 +1,10 @@
 import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import type { TemplateId } from "@/lib/templates";
-import { isDoodleStoryTemplate, isRichRelationshipTemplate } from "@/lib/templates";
+import {
+  isDoodleStoryTemplate,
+  isRichRelationshipTemplate,
+  type TemplateId,
+} from "@/lib/templates";
+
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 
 export type EmotionalStyleId =

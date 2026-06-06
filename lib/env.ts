@@ -14,6 +14,8 @@ export function hasOpenAiKey(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 
+import { getSupabasePublicKey, getSupabaseUrl } from "@/utils/supabase/config";
+
 export function validateServerEnv(): {
   openai: boolean;
   supabase: boolean;
@@ -21,11 +23,11 @@ export function validateServerEnv(): {
   missingPublic: string[];
 } {
   const missingPublic: string[] = [];
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()) {
+  if (!getSupabaseUrl()) {
     missingPublic.push("NEXT_PUBLIC_SUPABASE_URL");
   }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()) {
-    missingPublic.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  if (!getSupabasePublicKey()) {
+    missingPublic.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   }
 
   return {

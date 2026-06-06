@@ -12,8 +12,11 @@ import {
   type AiSlideDesign,
 } from "@/lib/aiOverlayRenderer";
 import { composeTypography } from "@/lib/aiTypographyComposer";
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+} from "@/lib/slides";
+
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";

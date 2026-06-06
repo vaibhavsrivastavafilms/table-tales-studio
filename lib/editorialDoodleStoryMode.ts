@@ -7,8 +7,11 @@ import {
   DOODLE_CAFE_CREAM,
   DOODLE_CAFE_ESPRESSO,
 } from "@/lib/doodleCafeLock";
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+} from "@/lib/slides";
+
 import { createEmptyCaptions } from "@/lib/draftStorage";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";

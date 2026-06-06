@@ -1,8 +1,10 @@
 "use client";
 
 import { memo } from "react";
-import { uploadUiPhaseLabel } from "@/lib/uploadState";
-import type { UploadUiPhase } from "@/lib/uploadState";
+import {
+  type UploadUiPhase,
+  uploadUiPhaseLabel,
+} from "@/lib/uploadState";
 
 type UploadStatusBannerProps = {
   phase: UploadUiPhase;

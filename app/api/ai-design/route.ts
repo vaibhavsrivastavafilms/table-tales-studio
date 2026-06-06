@@ -5,8 +5,11 @@ import {
   parseJsonBody,
   requireMethod,
 } from "@/lib/apiSecurity";
-import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import { AI_DESIGN_MODES } from "@/lib/aiDesignModes";
+import {
+  AI_DESIGN_MODES,
+  type AiDesignModeId,
+} from "@/lib/aiDesignModes";
+
 import { hasOpenAiKey } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { logMonitoring } from "@/lib/monitoring";

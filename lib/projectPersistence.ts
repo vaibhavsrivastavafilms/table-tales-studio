@@ -1,4 +1,7 @@
 import type { Captions } from "@/lib/slides";
+import { projectToCaptions } from "@/lib/story-engine/adapters";
+import { loadProject, saveProject } from "@/lib/story-engine/persistence/repository";
+import type { CarouselProject } from "@/lib/story-engine/types";
 import { loadDraft, saveDraft } from "@/lib/draftStorage";
 import {
   createProject,
@@ -90,15 +93,35 @@ export async function ensureProject(
   throw new Error("Cannot create cloud project without Supabase");
 }
 
+/** Persist CarouselProject JSON alongside legacy draft (Phase B bridge). */
+export async function persistCarouselProject(
+  carouselProject: CarouselProject
+): Promise<void> {
+  await saveProject(carouselProject);
+}
+
+export async function loadCarouselProject(
+  id: string
+): Promise<CarouselProject | null> {
+  return loadProject(id);
+}
+
 export async function persistEditorState(
   projectId: string | null,
-  state: EditorState
+  state: EditorState,
+  carouselProject?: CarouselProject | null
 ): Promise<Project | null> {
   saveDraft({
-    captions: state.captions,
+    captions: carouselProject
+      ? projectToCaptions(carouselProject)
+      : state.captions,
     templateId: state.templateId,
     images: state.images,
   });
+
+  if (carouselProject) {
+    await persistCarouselProject(carouselProject);
+  }
 
   if (!isSupabaseConfigured() || !projectId) return null;
 

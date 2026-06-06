@@ -1,15 +1,17 @@
 import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
 import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import type { DynamicTypographyPlan } from "@/lib/aiTypographyEngine";
+import {
+  composeTypographyLayout,
+  type DynamicTypographyPlan,
+  type TypographyComposition,
+} from "@/lib/aiTypographyEngine";
 import type { EditorialRedesignAsset } from "@/lib/aiRedesignDirector";
 import type { CollageComposition } from "@/lib/editorialCollageEngine";
-import type { EditorialLayoutPlan } from "@/lib/editorialLayouts";
-import { pickEditorialLayout } from "@/lib/editorialLayouts";
+import { pickEditorialLayout, type EditorialLayoutPlan } from "@/lib/editorialLayouts";
 import type { SubjectSegmentation } from "@/lib/subjectSegmentation";
 import { composeEditorialSlide, type EditorialSlideComposition } from "@/lib/editorialCompositionEngine";
 import { planDoodleRender, type DoodleRenderPlan } from "@/lib/doodleRenderEngine";
 import { resolveEmotionalStyle, type EmotionalStyleProfile } from "@/lib/emotionalStylingEngine";
-import { composeTypographyLayout, type TypographyComposition } from "@/lib/aiTypographyEngine";
 import { redesignLayout, type LayoutRedesign } from "@/lib/layoutRedesignEngine";
 import { buildVisualHierarchy, type VisualHierarchy } from "@/lib/visualHierarchyEngine";
 import { getLockedPhotoTreatment, getLockedOverlayLayers } from "@/lib/doodleCafeLock";
@@ -19,6 +21,7 @@ import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 import type { CreativeConsistencyMetrics } from "@/lib/creativeConsistency";
+import type { SlideRenderOutput } from "@/lib/renderers/types";
 
 export type RevealPhase = "idle" | "layout" | "type" | "doodles" | "complete";
 
@@ -45,6 +48,7 @@ export type SlideArtDirection = {
   typographyPlan?: DynamicTypographyPlan;
   redesign?: EditorialRedesignAsset | null;
   consistency?: CreativeConsistencyMetrics;
+  templateRender?: SlideRenderOutput;
 };
 
 export function directSlideArt(input: {

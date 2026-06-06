@@ -1,13 +1,10 @@
 "use server";
 
-/**
- * Server actions for Table Tales OS.
- * Procurement V1.5 runs on client localStorage; these actions are the Supabase migration surface.
- */
-
+import { procurementDbRepository } from "@/lib/os/repositories/procurement-db-repository";
 import type { ProcurementDb } from "@/lib/os/procurement/types";
 import { generateOrgInsights } from "@/lib/os/reports/ai-insights";
 import { buildFoodCostReport } from "@/lib/os/reports/food-cost";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export async function fetchOrgInsights(db: ProcurementDb, month?: string) {
   return generateOrgInsights(db, month);
@@ -17,7 +14,10 @@ export async function fetchFoodCostReport(db: ProcurementDb) {
   return buildFoodCostReport(db);
 }
 
-export async function persistProcurementSnapshot(_db: ProcurementDb) {
-  // Wire to Supabase when moving off localStorage.
-  return { ok: false as const, reason: "local_storage_mode" };
+export async function persistProcurementSnapshot(db: ProcurementDb) {
+  if (!isSupabaseConfigured()) {
+    return { ok: false as const, reason: "supabase_not_configured" };
+  }
+  await procurementDbRepository.save(db);
+  return { ok: true as const };
 }

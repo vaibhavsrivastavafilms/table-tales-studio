@@ -12,8 +12,10 @@ import type {
   OperatingExpense,
   ProcurementDb,
 } from "@/lib/os/procurement/types";
-import type { ExpenseCategoryDb } from "@/lib/os/finance/expense-schema";
-import { EXPENSE_CATEGORIES } from "@/lib/os/finance/expense-schema";
+import {
+  EXPENSE_CATEGORIES,
+  type ExpenseCategoryDb,
+} from "@/lib/os/finance/expense-schema";
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   Rent: "Rent",

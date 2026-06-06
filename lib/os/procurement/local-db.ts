@@ -8,11 +8,16 @@ import { applyCreditToDispute, syncDisputesForBill } from "@/lib/os/procurement/
 import { buildOmissionFromLine, lineNeedsOmission } from "@/lib/os/procurement/procurement-controls";
 import { suggestCategory } from "@/lib/os/procurement/categories";
 import {
+  loadProcurementDbFromStore,
+  saveProcurementDbToStore,
+} from "@/lib/os/procurement/data-store";
+import {
   loadStoredProcurementRaw,
   STORAGE_KEY,
 } from "@/lib/os/procurement/migrate";
 import { saveProcurementDbSafe } from "@/lib/os/procurement/persist";
 import { createSeedDb } from "@/lib/os/procurement/seed";
+import { isSupabaseConfigured } from "@/lib/supabase";
 import { convertToBaseUnit, addUnitConversion } from "@/lib/os/procurement/units";
 import type {
   CreditNote,
@@ -36,14 +41,30 @@ function uid(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/** @deprecated Prefer loadProcurementDbFromStore() for Supabase-backed loads. */
 export function loadProcurementDb(): ProcurementDb {
   if (typeof window === "undefined") return createSeedDb();
+  if (isSupabaseConfigured()) {
+    return createSeedDb();
+  }
   return loadStoredProcurementRaw();
 }
 
+export async function loadProcurementDbAsync(): Promise<ProcurementDb> {
+  return loadProcurementDbFromStore();
+}
+
+/** @deprecated Prefer saveProcurementDbToStore() for Supabase-backed saves. */
 export function saveProcurementDb(db: ProcurementDb): void {
+  if (isSupabaseConfigured()) return;
   saveProcurementDbSafe(db);
 }
+
+export async function saveProcurementDbAsync(db: ProcurementDb): Promise<void> {
+  await saveProcurementDbToStore(db);
+}
+
+export { loadProcurementDbFromStore, saveProcurementDbToStore };
 
 export function findVendorByName(db: ProcurementDb, name: string): Vendor | undefined {
   const norm = name.trim().toLowerCase();

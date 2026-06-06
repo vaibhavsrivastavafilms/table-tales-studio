@@ -6,15 +6,13 @@ import {
   runAiDesignPipeline,
   type AiDesignPipelineInput,
 } from "@/lib/aiDesignDirector";
-import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import { suggestAiDesignMode } from "@/lib/aiDesignModes";
+import { suggestAiDesignMode, type AiDesignModeId } from "@/lib/aiDesignModes";
 import { revokeAllOverlayUrls } from "@/lib/aiDesignCache";
 import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
 import { SLIDE_KEYS, type Captions } from "@/lib/slides";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import type { VisualAnalysis } from "@/lib/visualAnalysis";
-import { DEFAULT_ANALYSIS } from "@/lib/visualAnalysis";
+import { DEFAULT_ANALYSIS, type VisualAnalysis } from "@/lib/visualAnalysis";
 
 type UseAiDesignPipelineArgs = {
   enabled: boolean;

@@ -1,64 +1,99 @@
-import type { Slide, SlideRole, VisualPlan } from "@/lib/story-engine/types";
+import { getFrameworkDefinition } from "@/lib/story-engine/framework-engine";
+import {
+  enrichVisualPlanWithPhotos,
+  pickBestPhoto,
+} from "@/lib/story-engine/photo/photo-intelligence";
+import type { PhotoAsset, Slide, SlideRole, VisualPlan } from "@/lib/story-engine/types";
 
-const ROLE_VISUAL_DEFAULTS: Record<
-  SlideRole,
-  Omit<VisualPlan, "photoPreference" | "direction">
+const ROLE_VISUAL_DEFAULTS: Partial<
+  Record<
+    SlideRole,
+    Omit<VisualPlan, "photoPreference" | "direction" | "preferredPhotoId" | "confidence" | "reasoning">
+  >
 > = {
-  hook: {
-    visualType: "hero",
-    layout: "full-bleed",
-    overlayStyle: "editorial",
-  },
-  problem: {
-    visualType: "detail",
-    layout: "left-text",
-    overlayStyle: "doodle",
-  },
-  context: {
-    visualType: "wide",
-    layout: "right-text",
-    overlayStyle: "editorial",
-  },
-  insight: {
-    visualType: "closeup",
-    layout: "center",
-    overlayStyle: "minimal",
-  },
-  transformation: {
-    visualType: "before-after",
-    layout: "split",
-    overlayStyle: "luxury",
-  },
-  cta: {
-    visualType: "text",
-    layout: "center",
-    overlayStyle: "luxury",
-  },
+  hook: { visualType: "hero", layout: "full-bleed", overlayStyle: "editorial" },
+  problem: { visualType: "detail", layout: "left-text", overlayStyle: "doodle" },
+  challenge: { visualType: "detail", layout: "left-text", overlayStyle: "doodle" },
+  context: { visualType: "wide", layout: "right-text", overlayStyle: "editorial" },
+  approach: { visualType: "wide", layout: "right-text", overlayStyle: "editorial" },
+  insight: { visualType: "closeup", layout: "center", overlayStyle: "minimal" },
+  breakthrough: { visualType: "closeup", layout: "center", overlayStyle: "minimal" },
+  transformation: { visualType: "before-after", layout: "split", overlayStyle: "luxury" },
+  result: { visualType: "reaction", layout: "split", overlayStyle: "luxury" },
+  cta: { visualType: "text", layout: "center", overlayStyle: "luxury" },
 };
 
-const PHOTO_PREFERENCE: Record<SlideRole, string> = {
+const PHOTO_PREFERENCE: Partial<Record<SlideRole, string>> = {
   hook: "Hero dish or signature moment — high drama, shallow depth",
   problem: "Detail shot — texture, imperfection, tension",
+  challenge: "Detail shot — constraint, tension",
   context: "Wide environmental — kitchen, street, dining room",
+  approach: "Process or team — hands at work",
   insight: "Close-up — hands, steam, garnish, craft",
+  breakthrough: "Peak moment — steam, reveal, reaction",
   transformation: "Before/after or hero payoff — golden hour",
+  result: "Guest reaction or plated hero",
   cta: "Brand lockup, logo plate, or inviting table spread",
 };
 
-export function planVisualForRole(role: SlideRole): VisualPlan {
-  const base = ROLE_VISUAL_DEFAULTS[role];
+export function planVisualForRole(
+  role: SlideRole,
+  frameworkRoleIndex?: number,
+  frameworkId?: import("@/lib/story-engine/types").StoryFramework
+): VisualPlan {
+  if (frameworkId !== undefined && frameworkRoleIndex !== undefined) {
+    const def = getFrameworkDefinition(frameworkId);
+    const fr = def.slideRoles[frameworkRoleIndex];
+    if (fr) {
+      const base = {
+        visualType: fr.defaultVisualType,
+        layout: "center" as const,
+        overlayStyle: "editorial" as const,
+      };
+      return {
+        ...base,
+        photoPreference: PHOTO_PREFERENCE[role] ?? `${fr.label} visual`,
+        direction: `${base.visualType} · ${base.layout} · ${base.overlayStyle}`,
+      };
+    }
+  }
+  const base = ROLE_VISUAL_DEFAULTS[role] ?? {
+    visualType: "hero" as const,
+    layout: "center" as const,
+    overlayStyle: "editorial" as const,
+  };
   return {
     ...base,
-    photoPreference: PHOTO_PREFERENCE[role],
+    photoPreference: PHOTO_PREFERENCE[role] ?? "Food-forward hero frame",
     direction: `${base.visualType} · ${base.layout} · ${base.overlayStyle}`,
   };
 }
 
-export function applyVisualPlanToSlides(slides: Slide[]): Slide[] {
-  return slides.map((slide) => ({
-    ...slide,
-    visualPlan: planVisualForRole(slide.role),
-  }));
+export function applyVisualPlanToSlides(
+  slides: Slide[],
+  photoAssets: PhotoAsset[] = []
+): Slide[] {
+  return slides.map((slide, index) => {
+    let visualPlan = planVisualForRole(slide.role);
+    if (photoAssets.length > 0) {
+      const pick = pickBestPhoto(photoAssets, visualPlan.visualType);
+      if (pick) {
+        visualPlan = {
+          ...visualPlan,
+          preferredPhotoId: pick.photoId,
+          confidence: pick.confidence,
+          reasoning: pick.reasoning,
+          photoPreference:
+            photoAssets.find((a) => a.id === pick.photoId)?.url ??
+            visualPlan.photoPreference,
+        };
+      }
+    }
+    const withPlan = { ...slide, visualPlan };
+    return photoAssets.length
+      ? { ...withPlan, visualPlan: enrichVisualPlanWithPhotos(withPlan, photoAssets) }
+      : withPlan;
+  });
 }
 
 export function applyVisualInstruction(
@@ -105,7 +140,6 @@ export function applyVisualInstruction(
   return next;
 }
 
-// Fix applyVisualInstruction - Slide type doesn't have role on plan. Pass role separately.
 export function applyVisualInstructionForSlide(
   slide: Slide,
   instruction: string

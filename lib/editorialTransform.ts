@@ -9,8 +9,11 @@ import {
 } from "@/lib/subjectSegmentation";
 import { withPipelineTimeout } from "@/lib/pipelineInstrumentation";
 import { directSlideArt, type SlideArtDirection } from "@/lib/slideArtDirector";
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+} from "@/lib/slides";
+
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";

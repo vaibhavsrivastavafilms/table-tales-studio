@@ -3,7 +3,10 @@
 import { memo, useMemo, type MutableRefObject } from "react";
 import CarouselSlide from "@/components/CarouselSlide";
 import BuilderEmptyWorkspace from "@/components/builder/BuilderEmptyWorkspace";
-import { SLIDE_KEYS, type Captions } from "@/lib/slides";
+import { buildCarouselFromPipeline } from "@/lib/carousel-renderer/pipeline";
+import { studioCaptionsToCarouselLines } from "@/lib/carousel-renderer/captions-bridge";
+import { analyzePhotos } from "@/lib/story-engine/photo/photo-intelligence";
+import { SLIDE_KEYS, slideCountForTemplate, type Captions } from "@/lib/slides";
 import { DEFAULT_BRAND_KIT, resolveWatermarkText, type BrandKit } from "@/lib/brandKit";
 import { useRenderDiagnostic, slideStatesKey } from "@/lib/renderProfiler";
 import type { SlideArtDirection } from "@/lib/slideArtDirector";
@@ -12,11 +15,14 @@ import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
 import type { TemplateId } from "@/lib/templates";
 import type { SlideRenderState } from "@/lib/generationStages";
+import type { CarouselDocument } from "@/lib/carousel-renderer/types";
 
 type BuilderPreviewProps = {
   images: string[];
   captions: Captions;
   templateId: TemplateId;
+  /** Pre-built carousel JSON (hero-selected photos). Avoids duplicate pipeline runs. */
+  carouselDocument?: CarouselDocument | null;
   slideRefs: MutableRefObject<(HTMLElement | null)[]>;
   selectedIndex: number;
   onSelectSlide: (index: number) => void;
@@ -57,6 +63,7 @@ function BuilderPreview({
   slideStates,
   enhancingSlideIndex = null,
   directionsVersion = 0,
+  carouselDocument: carouselDocumentProp = null,
 }: BuilderPreviewProps) {
   useRenderDiagnostic("BuilderPreview");
 
@@ -65,16 +72,45 @@ function BuilderPreview({
     showWatermark ?? false
   );
 
-  const slides = useMemo(
-    () =>
-      SLIDE_KEYS.map((key, i) => ({
-        key,
-        image: images[i] ?? images[images.length - 1] ?? images[0] ?? "",
-        text: captions[key],
-        index: i + 1,
-      })),
-    [images, captions]
-  );
+  const useCarouselEngine = templateId === "doodle-story";
+
+  const carouselDocument = useMemo(() => {
+    if (carouselDocumentProp) return carouselDocumentProp;
+    if (!useCarouselEngine || images.length === 0) return null;
+    const { document } = buildCarouselFromPipeline({
+      templateId: "doodle-cafe",
+      theme: "cozy-cafe-storytelling",
+      style: "doodle-cafe",
+      photos: analyzePhotos(images).assets,
+      captions: studioCaptionsToCarouselLines(
+        captions,
+        brandKit?.brandName,
+        brandKit?.brandCta
+      ),
+      brandName: brandKit?.brandName,
+      brandCta: brandKit?.brandCta,
+    });
+    return document;
+  }, [carouselDocumentProp, useCarouselEngine, images, captions, brandKit]);
+
+  const slides = useMemo(() => {
+    if (carouselDocument) {
+      return carouselDocument.slides.map((s) => ({
+        key: `cafe-${s.index}` as const,
+        image: s.photoUrl,
+        text: s.headline,
+        index: s.index,
+      }));
+    }
+    return SLIDE_KEYS.map((key, i) => ({
+      key,
+      image: images[i] ?? images[images.length - 1] ?? images[0] ?? "",
+      text: captions[key],
+      index: i + 1,
+    }));
+  }, [carouselDocument, images, captions]);
+
+  const slideTotal = slideCountForTemplate(templateId);
 
   const artBySlide = useMemo(() => {
     const map = new Map<number, SlideArtDirection | null>();
@@ -93,7 +129,7 @@ function BuilderPreview({
   const heroReady =
     (!isGenerating || selectedState === "rendered") && !isEnhancingThis;
 
-  const slideProps = (slide: (typeof slides)[0]) => ({
+  const slideProps = (slide: (typeof slides)[0], exportMode = false) => ({
     image: slide.image,
     text: slide.text,
     index: slide.index,
@@ -106,6 +142,8 @@ function BuilderPreview({
     artDirection: artBySlide.get(slide.index) ?? null,
     aiDesign: artBySlide.get(slide.index)?.aiOverlay ?? null,
     slidePrefs: getSlidePrefs?.(slide.index),
+    carouselDocument,
+    exportMode,
   });
 
   return (
@@ -119,18 +157,21 @@ function BuilderPreview({
               Live storyboard
             </p>
             <span className="text-xs font-semibold text-[#f4c430]">
-              Slide {selectedIndex + 1}
+              Slide {selectedIndex + 1} of {slideTotal}
             </span>
           </div>
 
-          <div className="builder-export-rack" aria-hidden>
+          <div
+            className={`builder-export-rack${useCarouselEngine ? " builder-export-rack--carousel" : ""}`}
+            aria-hidden
+          >
             {slides.map((slide, i) => (
               <CarouselSlide
                 key={`export-${slide.key}`}
                 ref={(el) => {
                   slideRefs.current[i] = el;
                 }}
-                {...slideProps(slide)}
+                {...slideProps(slide, true)}
               />
             ))}
           </div>
@@ -149,7 +190,13 @@ function BuilderPreview({
             <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-zinc-600">
               All slides
             </p>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div
+              className={`grid gap-2 ${
+                slides.length > 6
+                  ? "grid-cols-4 sm:grid-cols-8"
+                  : "grid-cols-3 sm:grid-cols-6"
+              }`}
+            >
               {slides.map((slide, i) => {
                 const state = slideStates?.get(slide.index);
                 const active = i === selectedIndex;
@@ -213,6 +260,7 @@ function previewPropsEqual(
     prev.showWatermark === next.showWatermark &&
     prev.storyMood === next.storyMood &&
     prev.images === next.images &&
+    prev.carouselDocument === next.carouselDocument &&
     prev.captions === next.captions &&
     prev.brandKit === next.brandKit &&
     prev.styleReference === next.styleReference &&

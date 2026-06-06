@@ -1,8 +1,10 @@
 import {
-  DEFAULT_SLIDE_ROLES,
-  FRAMEWORK_STRUCTURE,
-  SLIDE_ROLE_LABELS,
-} from "@/lib/story-engine/constants";
+  buildStoryArchitecture,
+  getFrameworkDefinition,
+} from "@/lib/story-engine/framework-engine";
+import { createEmptyProjectFields } from "@/lib/story-engine/persistence/migrate";
+import { analyzePhotos } from "@/lib/story-engine/photo/photo-intelligence";
+import { appendRevision } from "@/lib/story-engine/revisions/revision-engine";
 import { applyVisualPlanToSlides } from "@/lib/story-engine/visual-planner";
 import type {
   CarouselProject,
@@ -52,23 +54,12 @@ export function generateCreativeBrief(input: StoryEngineInput): CreativeBrief {
   };
 }
 
-/** Step 2 — Story architecture (framework + hook + structure beats). */
+/** Step 2 — Story architecture from framework definition. */
 export function generateStoryArchitecture(
   brief: CreativeBrief,
   framework: StoryFramework
 ): StoryArchitecture {
-  const structure = FRAMEWORK_STRUCTURE[framework];
-  const hook =
-    framework === "founder"
-      ? `I didn't expect ${brief.topic} to change how we tell our story.`
-      : framework === "listicle"
-        ? `5 truths about ${brief.topic} that chefs won't say out loud.`
-        : `Everyone posts ${brief.topic}. Almost nobody tells the story behind it.`;
-  return {
-    framework,
-    hook,
-    structure,
-  };
+  return buildStoryArchitecture(brief, framework);
 }
 
 function copyForRole(
@@ -77,51 +68,87 @@ function copyForRole(
   story: StoryArchitecture,
   index: number
 ): { headline: string; body: string } {
-  const beat = story.structure[index] ?? SLIDE_ROLE_LABELS[role];
+  const def = getFrameworkDefinition(story.framework);
+  const roleDef = def.slideRoles[index];
+  const beat = story.structure[index] ?? roleDef?.beat ?? role;
 
-  switch (role) {
-    case "hook":
-      return {
-        headline: story.hook,
-        body: beat,
-      };
-    case "problem":
-      return {
-        headline: "The gap nobody talks about",
-        body: `Your audience feels something is missing around ${brief.topic}. ${beat}`,
-      };
-    case "context":
-      return {
-        headline: "Here's the real context",
-        body: `${brief.audience} — this is why ${brief.topic} matters on ${brief.platform}.`,
-      };
-    case "insight":
-      return {
-        headline: "The insight that shifts everything",
-        body: beat,
-      };
-    case "transformation":
-      return {
-        headline: "The transformation",
-        body: `${brief.brand ? `${brief.brand} — ` : ""}This is what ${brief.goal.toLowerCase()} looks like in one frame.`,
-      };
-    case "cta":
-      return {
-        headline: brief.brand ? `Experience ${brief.brand}` : "Your table is waiting",
-        body:
-          brief.brand
-            ? `Save this. Share with someone who loves ${brief.topic}.`
-            : "Follow for the next chapter of this story.",
-      };
+  if (role === "hook") {
+    return { headline: story.hook, body: beat };
   }
+  if (role === "challenge") {
+    return {
+      headline: "The challenge we faced",
+      body: `Your audience feels the constraint around ${brief.topic}. ${beat}`,
+    };
+  }
+  if (role === "approach") {
+    return {
+      headline: "Our approach",
+      body: `Here's what we tried differently for ${brief.topic}. ${beat}`,
+    };
+  }
+  if (role === "breakthrough") {
+    return {
+      headline: "The breakthrough moment",
+      body: beat,
+    };
+  }
+  if (role === "result") {
+    return {
+      headline: "The result",
+      body: `${brief.brand ? `${brief.brand} — ` : ""}Measurable payoff for ${brief.goal.toLowerCase()}.`,
+    };
+  }
+  if (role === "problem") {
+    return {
+      headline: "The gap nobody talks about",
+      body: `Your audience feels something is missing around ${brief.topic}. ${beat}`,
+    };
+  }
+  if (role === "context") {
+    return {
+      headline: "Here's the real context",
+      body: `${brief.audience} — this is why ${brief.topic} matters on ${brief.platform}.`,
+    };
+  }
+  if (role === "insight") {
+    return {
+      headline: "The insight that shifts everything",
+      body: beat,
+    };
+  }
+  if (role === "transformation") {
+    return {
+      headline: "The transformation",
+      body: `${brief.brand ? `${brief.brand} — ` : ""}This is what ${brief.goal.toLowerCase()} looks like in one frame.`,
+    };
+  }
+  if (role === "cta") {
+    return {
+      headline: brief.brand ? `Experience ${brief.brand}` : "Your table is waiting",
+      body: brief.brand
+        ? `Save this. Share with someone who loves ${brief.topic}.`
+        : "Follow for the next chapter of this story.",
+    };
+  }
+  return {
+    headline: roleDef?.label ?? role,
+    body: beat,
+  };
 }
 
-/** Step 3 — Slide plan (roles + copy), no visuals yet. */
+/** Step 3 — Slide plan from framework roles (dynamic count). */
 export function generateSlidePlan(
   brief: CreativeBrief,
   story: StoryArchitecture
 ): Slide[] {
-  return DEFAULT_SLIDE_ROLES.map((role, index) => {
+  const def = getFrameworkDefinition(story.framework);
+  const roles = story.slideRoles?.length
+    ? story.slideRoles
+    : def.slideRoles.map((r) => r.id);
+
+  return roles.map((role, index) => {
+    const roleDef = def.slideRoles[index];
     const { headline, body } = copyForRole(role, brief, story, index);
     return {
       id: slideId(role, index),
@@ -129,7 +156,7 @@ export function generateSlidePlan(
       headline,
       body,
       visualPlan: {
-        visualType: "hero",
+        visualType: roleDef?.defaultVisualType ?? "hero",
         layout: "center",
         overlayStyle: "editorial",
       },
@@ -147,8 +174,7 @@ export type StoryEnginePipelineResult = {
 };
 
 /**
- * Full pipeline: Brief → Story → Slide Plan → Visual Plan.
- * Never writes to UI — returns JSON project only.
+ * Full pipeline: Brief → Story → Slide Plan → Visual Plan (+ optional photos).
  */
 export function runStoryEnginePipeline(
   input: StoryEngineInput
@@ -158,7 +184,10 @@ export function runStoryEnginePipeline(
   const brief = generateCreativeBrief(input);
   const story = generateStoryArchitecture(brief, framework);
   const slidePlan = generateSlidePlan(brief, story);
-  const slidesWithVisuals = applyVisualPlanToSlides(slidePlan);
+  const photos = input.photoUrls?.length
+    ? analyzePhotos(input.photoUrls).assets
+    : [];
+  const slidesWithVisuals = applyVisualPlanToSlides(slidePlan, photos);
 
   const project: CarouselProject = {
     id: uid(),
@@ -167,10 +196,16 @@ export function runStoryEnginePipeline(
     slides: slidesWithVisuals,
     createdAt: now,
     updatedAt: now,
+    ...createEmptyProjectFields(),
+    photos,
   };
 
+  const withRevision = appendRevision(project, "Initial generation", {
+    label: "Original",
+  });
+
   return {
-    project,
+    project: withRevision,
     steps: {
       brief,
       story,
@@ -179,7 +214,6 @@ export function runStoryEnginePipeline(
   };
 }
 
-/** Merge AI-generated slide copy into an existing plan (preserves ids/roles). */
 export function mergeAiSlideCopy(
   slides: Slide[],
   aiCopy: Partial<Record<SlideRole, { headline?: string; body?: string }>>
@@ -197,4 +231,20 @@ export function mergeAiSlideCopy(
 
 export function touchProject(project: CarouselProject): CarouselProject {
   return { ...project, updatedAt: new Date().toISOString() };
+}
+
+/** Rebuild slide plan when framework changes (preserves project id). */
+export function applyFrameworkToProject(
+  project: CarouselProject,
+  framework: StoryFramework
+): CarouselProject {
+  const brief = project.brief;
+  const story = generateStoryArchitecture(brief, framework);
+  const slidePlan = generateSlidePlan(brief, story);
+  const slides = applyVisualPlanToSlides(slidePlan, project.photos);
+  return touchProject({
+    ...project,
+    story,
+    slides,
+  });
 }

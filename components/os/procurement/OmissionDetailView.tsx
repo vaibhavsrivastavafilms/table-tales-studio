@@ -66,6 +66,8 @@ export default function OmissionDetailView({ caseId }: OmissionDetailViewProps) 
         ],
         imageDataUrl: file.type.startsWith("image/") ? imageDataUrl : null,
         pdfDataUrl: file.type === "application/pdf" ? imageDataUrl : null,
+        document: null,
+        ocrJsonUrl: null,
         ocrJson: JSON.stringify(data.result ?? {}),
       });
       router.push("/os/procurement/credit-notes");
@@ -143,6 +145,8 @@ export default function OmissionDetailView({ caseId }: OmissionDetailViewProps) 
                 ],
                 imageDataUrl: null,
                 pdfDataUrl: null,
+                document: null,
+                ocrJsonUrl: null,
                 ocrJson: null,
               });
               router.push("/os/procurement/credit-notes");

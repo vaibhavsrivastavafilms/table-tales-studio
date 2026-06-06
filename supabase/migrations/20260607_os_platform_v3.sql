@@ -1,5 +1,5 @@
 -- Table Tales OS · Multi-branch platform (branches, expenses, approvals, notifications, vault, P&L, daily MIS)
--- Apply after 20260606_procurement_os_v2.sql
+-- Apply after 20260606_procurement_os_v2.sql and 20260606_hr_flip_office.sql
 
 create type branch_status as enum ('active', 'inactive');
 create type approval_type as enum (
@@ -57,10 +57,10 @@ on conflict (id) do nothing;
 
 -- branch_id on core business tables
 alter table if exists purchase_bills add column if not exists branch_id text references branches(id);
-alter table if exists goods_received_notes add column if not exists branch_id text references branches(id);
+alter table if exists grn_receipts add column if not exists branch_id text references branches(id);
 alter table if exists omission_cases add column if not exists branch_id text references branches(id);
 alter table if exists credit_notes add column if not exists branch_id text references branches(id);
-alter table if exists vendor_ledger_entries add column if not exists branch_id text references branches(id);
+alter table if exists vendor_ledger add column if not exists branch_id text references branches(id);
 alter table if exists sales add column if not exists branch_id text references branches(id);
 alter table if exists employees add column if not exists branch_id text references branches(id);
 alter table if exists attendance_records add column if not exists branch_id text references branches(id);
@@ -70,6 +70,8 @@ alter table if exists production_batches add column if not exists branch_id text
 alter table if exists inventory_movements add column if not exists branch_id text references branches(id);
 
 create index if not exists idx_purchase_bills_branch on purchase_bills(branch_id);
+create index if not exists idx_grn_receipts_branch on grn_receipts(branch_id);
+create index if not exists idx_vendor_ledger_branch on vendor_ledger(branch_id);
 create index if not exists idx_sales_branch on sales(branch_id);
 create index if not exists idx_employees_branch on employees(branch_id);
 create index if not exists idx_payroll_runs_branch on payroll_runs(branch_id);

@@ -1,5 +1,11 @@
-import type { AiDesignMode, AiDesignModeId } from "@/lib/aiDesignModes";
-import { getAiDesignMode } from "@/lib/aiDesignModes";
+import { buildCampaignOverlayPrompt } from "@/lib/carousel-renderer/campaign-engine";
+import { FRESH_FEELGOOD_CONSISTENCY_BLOCK } from "@/lib/carousel-renderer/campaigns/fresh-feelgood-food";
+import {
+  type AiDesignMode,
+  type AiDesignModeId,
+  getAiDesignMode,
+} from "@/lib/aiDesignModes";
+
 import type { AiLayoutPlan } from "@/lib/aiEditorialLayout";
 import { adaptDoodleFromReference } from "@/lib/doodleStyleAdaptation";
 import type { StyleReference } from "@/lib/styleReference";
@@ -70,6 +76,20 @@ export function buildDoodlePromptBrief(input: {
   styleReference?: StyleReference | null;
   styleVision?: StyleVisionResult | null;
 }): DoodlePromptBrief {
+  const campaignPrompt = buildCampaignOverlayPrompt(input.slideIndex);
+  if (campaignPrompt) {
+    return {
+      overlayPrompt: campaignPrompt,
+      stickerPrompt: [
+        STYLE_LOCK,
+        "floating yellow accent stars and marks only",
+        FRESH_FEELGOOD_CONSISTENCY_BLOCK,
+      ].join(". "),
+      focus: `Campaign slide ${input.slideIndex} — unique doodle narrative`,
+      negativePrompt: NEGATIVE,
+    };
+  }
+
   const mode = getAiDesignMode(input.mode);
   const adaptation = adaptDoodleFromReference(
     input.styleReference,

@@ -1,3 +1,4 @@
+import { appendRevision } from "@/lib/story-engine/revisions/revision-engine";
 import { applyVisualInstructionForSlide } from "@/lib/story-engine/visual-planner";
 import { scoreCarouselProject } from "@/lib/story-engine/scoring-engine";
 import { touchProject } from "@/lib/story-engine/story-engine";
@@ -71,7 +72,7 @@ export function enhanceSlide(
     slides,
   });
   next = { ...next, score: scoreCarouselProject(next) };
-  return next;
+  return appendRevision(next, instruction);
 }
 
 export function enhanceSlideFromInput(input: EnhanceSlideInput): CarouselProject {
@@ -81,7 +82,8 @@ export function enhanceSlideFromInput(input: EnhanceSlideInput): CarouselProject
 export function mergeAiEnhancedSlide(
   project: CarouselProject,
   slideId: string,
-  patch: { headline?: string; body?: string; visualDirection?: string }
+  patch: { headline?: string; body?: string; visualDirection?: string },
+  revisionInstruction?: string
 ): CarouselProject {
   const index = project.slides.findIndex((s) => s.id === slideId);
   if (index < 0) return project;
@@ -100,5 +102,8 @@ export function mergeAiEnhancedSlide(
 
   let next = touchProject({ ...project, slides });
   next = { ...next, score: scoreCarouselProject(next) };
-  return next;
+  return appendRevision(
+    next,
+    revisionInstruction ?? patch.visualDirection ?? "AI enhancement"
+  );
 }

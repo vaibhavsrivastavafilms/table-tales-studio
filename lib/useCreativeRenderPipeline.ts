@@ -8,15 +8,13 @@ import {
   type PipelineProgressEvent,
 } from "@/lib/aiCreativeDirector";
 import { enrichArtDirectionsWithEditorial } from "@/lib/editorialTransform";
-import type { AiDesignModeId } from "@/lib/aiDesignModes";
-import { suggestAiDesignMode } from "@/lib/aiDesignModes";
+import { suggestAiDesignMode, type AiDesignModeId } from "@/lib/aiDesignModes";
 import { revokeAllOverlayUrls } from "@/lib/aiDesignCache";
 import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { Captions } from "@/lib/slides";
 import type { StyleReference } from "@/lib/styleReference";
 import type { StyleVisionResult } from "@/lib/styleVision";
-import type { VisualAnalysis } from "@/lib/visualAnalysis";
-import { DEFAULT_ANALYSIS } from "@/lib/visualAnalysis";
+import { DEFAULT_ANALYSIS, type VisualAnalysis } from "@/lib/visualAnalysis";
 import type { TemplateId } from "@/lib/templates";
 import { useGenerationProgress } from "@/lib/useGenerationProgress";
 import { slideStatesKey } from "@/lib/renderProfiler";

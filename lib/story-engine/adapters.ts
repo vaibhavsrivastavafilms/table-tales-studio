@@ -1,23 +1,38 @@
-import type { Captions, SlideKey } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
-import type { CarouselProject, Slide, SlideRole } from "@/lib/story-engine/types";
+import {
+  type Captions,
+  SLIDE_KEYS,
+  type SlideKey,
+} from "@/lib/slides";
 
-/** Legacy slide keys map 1:1 to story engine roles. */
+import { createEmptyCaptions } from "@/lib/draftStorage";
+import { createEmptyProjectFields } from "@/lib/story-engine/persistence/migrate";
+import { runStoryEnginePipeline } from "@/lib/story-engine/story-engine";
+import type {
+  CarouselProject,
+  Slide,
+  SlideRole,
+  StoryFramework,
+} from "@/lib/story-engine/types";
+
+/** Legacy slide keys map to first N story roles by index. */
+export const SLIDE_KEY_TO_INDEX: Record<SlideKey, number> = {
+  hook: 0,
+  slide1: 1,
+  slide2: 2,
+  slide3: 3,
+  slide4: 4,
+  cta: 5,
+};
+
+export const INDEX_TO_SLIDE_KEY = SLIDE_KEYS;
+
+/** @deprecated use index mapping */
 export const SLIDE_KEY_TO_ROLE: Record<SlideKey, SlideRole> = {
   hook: "hook",
   slide1: "problem",
   slide2: "context",
   slide3: "insight",
   slide4: "transformation",
-  cta: "cta",
-};
-
-export const ROLE_TO_SLIDE_KEY: Record<SlideRole, SlideKey> = {
-  hook: "hook",
-  problem: "slide1",
-  context: "slide2",
-  insight: "slide3",
-  transformation: "slide4",
   cta: "cta",
 };
 
@@ -31,14 +46,11 @@ export function slideToCaption(slide: Slide): string {
 }
 
 export function projectToCaptions(project: CarouselProject): Captions {
-  const captions = {} as Captions;
-  for (const key of SLIDE_KEYS) {
-    captions[key] = "";
-  }
-  for (const slide of project.slides) {
-    const key = ROLE_TO_SLIDE_KEY[slide.role];
+  const captions = createEmptyCaptions();
+  project.slides.forEach((slide, i) => {
+    const key = INDEX_TO_SLIDE_KEY[i];
     if (key) captions[key] = slideToCaption(slide);
-  }
+  });
   return captions;
 }
 
@@ -46,8 +58,8 @@ export function captionsToProjectPatch(
   project: CarouselProject,
   captions: Captions
 ): CarouselProject {
-  const slides = project.slides.map((slide) => {
-    const key = ROLE_TO_SLIDE_KEY[slide.role];
+  const slides = project.slides.map((slide, i) => {
+    const key = INDEX_TO_SLIDE_KEY[i];
     const text = key ? captions[key]?.trim() : "";
     if (!text) return slide;
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -64,13 +76,36 @@ export function captionsToProjectPatch(
   };
 }
 
+/** Bootstrap a project from legacy captions-only editor state. */
+export function hydrateProjectFromCaptions(
+  captions: Captions,
+  options?: { framework?: StoryFramework; topic?: string }
+): CarouselProject {
+  const baseline = runStoryEnginePipeline({
+    topic: options?.topic ?? "Imported carousel",
+    framework: options?.framework ?? "transformation",
+  }).project;
+
+  return captionsToProjectPatch(
+    {
+      ...baseline,
+      ...createEmptyProjectFields(),
+    },
+    captions
+  );
+}
+
 export function getSlideIdForIndex(
   project: CarouselProject | null,
   slideIndex: number
 ): string | null {
   if (!project) return null;
-  const key = SLIDE_KEYS[slideIndex];
-  if (!key) return null;
-  const role = SLIDE_KEY_TO_ROLE[key];
-  return project.slides.find((s) => s.role === role)?.id ?? null;
+  return project.slides[slideIndex]?.id ?? null;
+}
+
+export function getSlideIndexForKey(
+  project: CarouselProject | null,
+  key: SlideKey
+): number {
+  return SLIDE_KEY_TO_INDEX[key] ?? 0;
 }

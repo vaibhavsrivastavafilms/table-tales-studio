@@ -1,5 +1,8 @@
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+} from "@/lib/slides";
+
 import { sanitizeCaptions } from "@/lib/validation";
 
 export type RewriteMode =

@@ -28,7 +28,7 @@ export function mergeOcrPageResults(
 
   const lastWithTotals = [...pages].reverse().find((p) => p.totalValue > 0) ?? first;
 
-  return applyOcrTotalsToBill({
+  const draft: OcrBillResult = {
     vendorName: first.vendorName || lastWithTotals.vendorName,
     vendorGst: first.vendorGst ?? lastWithTotals.vendorGst,
     vendorAddress: first.vendorAddress ?? lastWithTotals.vendorAddress,
@@ -41,6 +41,10 @@ export function mergeOcrPageResults(
     totalValue: lastWithTotals.totalValue,
     extraCharges: lastWithTotals.extraCharges,
     items: mergedItems,
-    pageCount,
-  }) as OcrBillResult & { pageCount?: number };
+  };
+
+  return {
+    ...draft,
+    ...applyOcrTotalsToBill(draft),
+  };
 }

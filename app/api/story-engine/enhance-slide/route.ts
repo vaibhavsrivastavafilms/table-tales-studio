@@ -4,6 +4,7 @@ import {
   enhanceSlideFromInput,
   mergeAiEnhancedSlide,
 } from "@/lib/story-engine/creative-director";
+import { enhanceSlideInputSchema } from "@/lib/story-engine/schema";
 import type { CarouselProject } from "@/lib/story-engine/types";
 import {
   clientIp,
@@ -27,15 +28,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const body = parsed.data;
-  const project = body.project as CarouselProject | undefined;
-  const slideId = typeof body.slideId === "string" ? body.slideId : "";
-  const instruction =
-    typeof body.instruction === "string" ? body.instruction.slice(0, 500) : "";
-
-  if (!project?.slides?.length || !slideId || !instruction.trim()) {
-    return NextResponse.json({ error: "project, slideId, instruction required" }, { status: 400 });
+  const validated = enhanceSlideInputSchema.safeParse(parsed.data);
+  if (!validated.success) {
+    return NextResponse.json({ error: "Invalid project payload" }, { status: 400 });
   }
+  const { project, slideId, instruction } = validated.data as {
+    project: CarouselProject;
+    slideId: string;
+    instruction: string;
+  };
 
   const ip = clientIp(req);
   const rate = checkRateLimit(`story-enhance:${ip}`, 40, 60_000);
@@ -47,8 +48,6 @@ export async function POST(req: Request) {
   if (!slide) {
     return NextResponse.json({ error: "Slide not found" }, { status: 404 });
   }
-
-  let next = enhanceSlideFromInput({ project, slideId, instruction });
 
   if (hasOpenAiKey()) {
     try {
@@ -81,11 +80,21 @@ Do not change slide role. No markdown.`,
         body?: string;
         visualDirection?: string;
       };
-      next = mergeAiEnhancedSlide(project, slideId, raw);
+      const next = mergeAiEnhancedSlide(
+        project,
+        slideId,
+        {
+          ...raw,
+          visualDirection: raw.visualDirection ?? instruction,
+        },
+        instruction
+      );
+      return NextResponse.json({ project: next });
     } catch (error) {
       logger.warn("enhance-slide AI fallback", { error: String(error) });
     }
   }
 
+  const next = enhanceSlideFromInput({ project, slideId, instruction });
   return NextResponse.json({ project: next });
 }

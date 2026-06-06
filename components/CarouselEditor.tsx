@@ -12,7 +12,7 @@ import UploadPanel from "@/components/UploadPanel";
 import StoryPanel from "@/components/StoryPanel";
 import DashboardErrorBoundary from "@/components/DashboardErrorBoundary";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
-import type { Captions } from "@/lib/slides";
+import { type Captions, SLIDE_KEYS } from "@/lib/slides";
 import { generateStory } from "@/lib/apiClient";
 import { cleanupExportMemory } from "@/lib/exportSlides";
 import { safeTimeout } from "@/lib/browser";
@@ -30,7 +30,7 @@ import { sanitizeCaptionField } from "@/lib/validation";
 import { trackEvent } from "@/lib/analytics";
 import { shouldShowWatermark } from "@/lib/usage";
 import { loadEditorState, persistEditorState } from "@/lib/projectPersistence";
-import { logExport } from "@/lib/projects";
+import { logExport, type Project } from "@/lib/projects";
 import AiDesignModePanel from "@/components/AiDesignModePanel";
 import {
   DEFAULT_AI_DESIGN_MODE,
@@ -44,7 +44,6 @@ import {
   isDoodleStoryTemplate,
   type TemplateId,
 } from "@/lib/templates";
-import type { Project } from "@/lib/projects";
 import CreatorWelcome from "@/components/CreatorWelcome";
 import BrandKitPanel from "@/components/BrandKitPanel";
 import StoryboardPanel from "@/components/StoryboardPanel";
@@ -79,6 +78,7 @@ import {
   recordStyleReference,
   recordTemplateUse,
   recordViralMode,
+  markDemoTried,
   type NichePreference,
 } from "@/lib/creatorMemory";
 import {
@@ -96,15 +96,13 @@ import {
   saveBrandKit,
   type BrandKit,
 } from "@/lib/brandKit";
-import type { ViralHookMode } from "@/lib/viralHooks";
-import { enhanceHookLocally } from "@/lib/viralHooks";
+import { enhanceHookLocally, type ViralHookMode } from "@/lib/viralHooks";
 import { MOTION } from "@/lib/motion";
 import { shouldShowToast } from "@/lib/toastCoordinator";
 import { recordHealthEvent } from "@/lib/health";
 import { scheduleIdleCleanup } from "@/lib/idleCleanup";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { getDemoProject } from "@/lib/demoProject";
-import { markDemoTried } from "@/lib/creatorMemory";
 import { logMonitoring } from "@/lib/monitoring";
 import BuilderTopBar from "@/components/builder/BuilderTopBar";
 import BuilderGenerationProgress from "@/components/builder/BuilderGenerationProgress";
@@ -122,7 +120,6 @@ import {
   prefsForSlide,
   type SlideEditorPrefs,
 } from "@/lib/slideEditorPrefs";
-import { SLIDE_KEYS } from "@/lib/slides";
 import {
   CREATIVE_QUICK_ACTIONS,
   type CreativeQuickActionId,

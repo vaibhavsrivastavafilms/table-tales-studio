@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import PurchaseBillsListView from "@/components/os/procurement/PurchaseBillsListView";
 
 export default function PurchaseBillsPage() {
-  return (
-    <OsPlaceholder
-      title="Purchase Bills"
-      description="Goods received, invoice matching, and approval workflows."
-    />
-  );
+  return <PurchaseBillsListView />;
 }

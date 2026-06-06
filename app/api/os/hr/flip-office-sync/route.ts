@@ -3,8 +3,12 @@ import {
   fetchFlipOfficeDailyAttendance,
   getFlipOfficeConfig,
 } from "@/lib/os/hr/flip-office";
-import { buildAttendanceRecord, resolveEmployeeForAttendance } from "@/lib/os/hr/attendance";
-import type { FlipOfficeAttendanceRow } from "@/lib/os/hr/attendance";
+import {
+  buildAttendanceRecord,
+  type FlipOfficeAttendanceRow,
+  resolveEmployeeForAttendance,
+} from "@/lib/os/hr/attendance";
+
 import type { ProcurementDb } from "@/lib/os/procurement/types";
 
 export const runtime = "nodejs";

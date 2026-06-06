@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import VendorsView from "@/components/os/procurement/VendorsView";
 
 export default function VendorsPage() {
-  return (
-    <OsPlaceholder
-      title="Vendors"
-      description="Supplier directory, contracts, and lead times."
-    />
-  );
+  return <VendorsView />;
 }

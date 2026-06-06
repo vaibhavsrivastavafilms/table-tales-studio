@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createMiddlewareClient, isSupabaseConfigured } from "@/lib/supabase";
+import { updateSession } from "@/utils/supabase/middleware";
 
 function isPublicDashboardPath(pathname: string): boolean {
   return (
@@ -16,6 +17,10 @@ function isPublicOsPath(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isSupabaseConfigured()) {
+    await updateSession(request);
+  }
 
   const isDashboard = pathname.startsWith("/dashboard");
   const isOs = pathname.startsWith("/os");
@@ -125,5 +130,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/os/:path*"],
+  matcher: ["/dashboard/:path*", "/os", "/os/:path*"],
 };

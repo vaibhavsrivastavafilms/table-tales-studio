@@ -1,6 +1,9 @@
 import { guardCaptions } from "@/lib/creativeGuardrails";
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
+import {
+  type Captions,
+  SLIDE_KEYS,
+} from "@/lib/slides";
+
 import { getTemplateId, type TemplateId } from "@/lib/templates";
 export type ExportFormat = "jpeg" | "png";
 

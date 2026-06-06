@@ -23,13 +23,13 @@ import {
   createGrnFromBill,
   createInternalAdjustment,
   createInventoryItem,
-  loadProcurementDb,
+  loadProcurementDbAsync,
   omitBillLineToQueue,
   rejectPurchaseBill,
   resolveOmission,
   saveClosingStockOcr,
   saveOpeningStockOcr,
-  saveProcurementDb,
+  saveProcurementDbAsync,
   updateBillLineReceivedQty,
   updateGrn,
   updatePurchaseBill,
@@ -46,6 +46,7 @@ import {
   persistStockVariances,
   type CreateRecipeInput,
 } from "@/lib/os/procurement/os-operations";
+import { createSeedDb } from "@/lib/os/procurement/seed";
 import type { ItemMasterInput } from "@/lib/os/inventory/item-master";
 import type { CreatePaymentInput } from "@/lib/os/procurement/payments";
 import {
@@ -112,9 +113,9 @@ import type {
 } from "@/lib/os/procurement/types";
 import type { FlipOfficeEmployeeRow } from "@/lib/os/hr/flip-office";
 import { processAutomatedBillUpload } from "@/lib/os/procurement/pipeline";
+import { getProcurementRole } from "@/lib/os/procurement/permissions";
 import {
   ProcurementStorageQuotaError,
-  saveProcurementDbSafe,
 } from "@/lib/os/procurement/persist";
 import { resolveItemByNameOrAlias } from "@/lib/os/procurement/aliases";
 import { applyOcrTotalsToBill } from "@/lib/os/procurement/bill-totals";
@@ -254,7 +255,7 @@ type ProcurementContextValue = {
 
 function getActor(fallback: string): string {
   if (typeof window === "undefined") return fallback;
-  return localStorage.getItem("tts:os:procurement:role") ?? fallback;
+  return getProcurementRole() ?? fallback;
 }
 
 const ProcurementContext = createContext<ProcurementContextValue | null>(null);
@@ -263,8 +264,13 @@ export function ProcurementProvider({ children }: { children: React.ReactNode })
   const [db, setDb] = useState<ProcurementDb | null>(null);
   const [activeBranchId, setActiveBranchState] = useState<string>(ALL_BRANCHES_ID);
 
-  const refresh = useCallback(() => {
-    setDb(loadProcurementDb());
+  const refresh = useCallback(async () => {
+    try {
+      const next = await loadProcurementDbAsync();
+      setDb(next);
+    } catch (error) {
+      console.error(error);
+    }
     setActiveBranchState(getActiveBranchId());
   }, []);
 
@@ -282,40 +288,39 @@ export function ProcurementProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const persist = useCallback((next: ProcurementDb) => {
-    try {
-      saveProcurementDbSafe(next);
-      setDb(next);
-    } catch (error) {
-      if (error instanceof ProcurementStorageQuotaError) {
-        console.error(error.message);
-        alert(error.message);
-        return;
-      }
-      throw error;
-    }
+    void saveProcurementDbAsync(next)
+      .then(() => setDb(next))
+      .catch((error) => {
+        if (error instanceof ProcurementStorageQuotaError) {
+          console.error(error.message);
+          alert(error.message);
+          return;
+        }
+        console.error(error);
+        alert(error instanceof Error ? error.message : "Failed to save data.");
+      });
   }, []);
 
   const mutate = useCallback((updater: (db: ProcurementDb) => ProcurementDb) => {
     setDb((current) => {
-      const base = current ?? loadProcurementDb();
-      const next = updater(base);
-      try {
-        saveProcurementDbSafe(next);
-      } catch (error) {
+      if (!current) return current;
+      const next = updater(current);
+      void saveProcurementDbAsync(next).catch((error) => {
         if (error instanceof ProcurementStorageQuotaError) {
           console.error(error.message);
           alert(error.message);
-          return base;
+          return;
         }
-        throw error;
-      }
+        console.error(error);
+        alert(error instanceof Error ? error.message : "Failed to save data.");
+      });
       return next;
     });
   }, []);
 
   const matchStockLines = useCallback(
     (lines: StockOcrResult["lines"]): StockOcrLine[] => {
-      const current = db ?? loadProcurementDb();
+      const current = db ?? createSeedDb();
       return lines.map((line) => {
         const item = resolveItemByNameOrAlias(current, line.itemName);
         return {
@@ -333,7 +338,7 @@ export function ProcurementProvider({ children }: { children: React.ReactNode })
       document: StoredDocumentRef | null,
       vendorId?: string | null
     ): Omit<PurchaseBill, "id" | "createdAt" | "postedAt" | "rejectedAt"> => {
-      const current = db ?? loadProcurementDb();
+      const current = db ?? createSeedDb();
       const vendor = current.vendors.find(
         (v) =>
           v.id === vendorId ||
@@ -637,7 +642,7 @@ export function ProcurementProvider({ children }: { children: React.ReactNode })
       updateFlipOfficeIntegration: (patch) =>
         mutate((d) => updateFlipOfficeSettings(d, patch)),
       runFlipOfficeSync: async (module, date) => {
-        const current = db ?? loadProcurementDb();
+        const current = db ?? createSeedDb();
         let next = current;
         const results: FlipOfficeSyncResult[] = [];
         const syncDate = date ?? new Date().toISOString().slice(0, 10);
@@ -662,7 +667,7 @@ export function ProcurementProvider({ children }: { children: React.ReactNode })
         return results;
       },
       importFlipOfficeSalesCsv: async (csvText) => {
-        const current = db ?? loadProcurementDb();
+        const current = db ?? createSeedDb();
         const out = await importFlipCsv(current, csvText, getActor("owner"));
         persist(out.db);
         return out.result;

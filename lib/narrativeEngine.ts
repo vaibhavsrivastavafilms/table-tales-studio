@@ -2,8 +2,7 @@ import type { CreatorMemory } from "@/lib/creatorMemory";
 import { intensityToViralMode } from "@/lib/directorLearning";
 import type { DirectorProfile } from "@/lib/directorProfile";
 import { describeDish, enhanceFoodCaption } from "@/lib/foodLanguage";
-import type { PlatformModeId } from "@/lib/platformModes";
-import { getPlatformMode } from "@/lib/platformModes";
+import { type PlatformModeId, getPlatformMode } from "@/lib/platformModes";
 import {
   injectRetentionHooks,
   getRetentionPattern,
@@ -12,13 +11,16 @@ import {
 import type { Captions } from "@/lib/slides";
 import { createEmptyCaptions } from "@/lib/draftStorage";
 import { getPrimaryNarrative } from "@/lib/storyAngles";
-import type { TemplateId } from "@/lib/templates";
-import { getTemplateConfig } from "@/lib/templates";
+import {
+  getTemplateConfig,
+  isDoodleStoryTemplate,
+  isRichRelationshipTemplate,
+  type TemplateId,
+} from "@/lib/templates";
 import type { StyleReference } from "@/lib/styleReference";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
 import { generateRichRelationshipNarrative } from "@/lib/richRelationshipNarrative";
 import { generateDoodleStoryNarrative } from "@/lib/doodleStoryNarrative";
-import { isDoodleStoryTemplate, isRichRelationshipTemplate } from "@/lib/templates";
 import { enhanceHookLocally } from "@/lib/viralHooks";
 import { guardCaptions } from "@/lib/creativeGuardrails";
 

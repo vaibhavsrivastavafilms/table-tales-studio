@@ -1,25 +1,41 @@
+import { INDEX_TO_SLIDE_KEY, projectToCaptions } from "@/lib/story-engine/adapters";
 import {
-  projectToCaptions,
-  SLIDE_KEY_TO_ROLE,
-} from "@/lib/story-engine/adapters";
-import { SLIDE_KEYS, type SlideKey } from "@/lib/slides";
-import type { Captions } from "@/lib/slides";
+  type Captions,
+  SLIDE_KEYS,
+  type SlideKey,
+} from "@/lib/slides";
+
 import type {
   CarouselProject,
   CarouselRenderModel,
   RenderedSlideView,
+  Slide,
 } from "@/lib/story-engine/types";
+
+function placeholderSlide(index: number): Slide {
+  const role = `slide_${index}`;
+  return {
+    id: `placeholder_${index}`,
+    role,
+    headline: "",
+    body: "",
+    visualPlan: {
+      visualType: "hero",
+      layout: "center",
+      overlayStyle: "editorial",
+    },
+  };
+}
 
 /**
  * Derive all UI-facing carousel state from project JSON.
- * This is the only rendering entry point for story-engine mode.
+ * Maps first N project slides to legacy 6 slide keys by index.
  */
 export function renderCarousel(project: CarouselProject): CarouselRenderModel {
   const captions = projectToCaptions(project);
 
   const slides: RenderedSlideView[] = SLIDE_KEYS.map((key, index) => {
-    const role = SLIDE_KEY_TO_ROLE[key as SlideKey];
-    const slide = project.slides.find((s) => s.role === role)!;
+    const slide = project.slides[index] ?? placeholderSlide(index);
     return {
       index,
       slide,

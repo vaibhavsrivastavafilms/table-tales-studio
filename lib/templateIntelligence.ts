@@ -5,8 +5,10 @@ import {
 } from "@/lib/doodleCafeLock";
 import type { StyleReference } from "@/lib/styleReference";
 import type { VisualAnalysis } from "@/lib/visualAnalysis";
-import type { TemplateId } from "@/lib/templates";
-import { getTemplateConfig } from "@/lib/templates";
+import {
+  getTemplateConfig,
+  type TemplateId,
+} from "@/lib/templates";
 
 export type TemplateSuggestion = {
   template: TemplateId;

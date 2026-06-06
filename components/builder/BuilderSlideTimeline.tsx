@@ -7,6 +7,8 @@ import type { SlideRenderState } from "@/lib/generationStages";
 
 type BuilderSlideTimelineProps = {
   images: string[];
+  /** Per-slide URLs from hero engine (index 0 = slide 1). Falls back to upload order. */
+  slideImages?: string[];
   selectedIndex: number;
   onSelectSlide: (index: number) => void;
   onSwapSlides?: (fromIndex: number, toIndex: number) => void;
@@ -32,6 +34,7 @@ function ringClass(
 
 function BuilderSlideTimeline({
   images,
+  slideImages,
   selectedIndex,
   onSelectSlide,
   onSwapSlides,
@@ -54,7 +57,11 @@ function BuilderSlideTimeline({
       <div className="carousel-scroll flex gap-2 overflow-x-auto pb-1">
         {SLIDE_KEYS.map((key, i) => {
           const thumb =
-            images[i] ?? images[images.length - 1] ?? images[0] ?? "";
+            slideImages?.[i] ??
+            images[i] ??
+            images[images.length - 1] ??
+            images[0] ??
+            "";
           const active = i === selectedIndex;
           const state = slideStates?.get(i + 1);
           return (
@@ -134,6 +141,7 @@ function timelinePropsEqual(
     prev.selectedIndex === next.selectedIndex &&
     prev.disabled === next.disabled &&
     prev.images === next.images &&
+    prev.slideImages === next.slideImages &&
     prev.onSelectSlide === next.onSelectSlide &&
     prev.onSwapSlides === next.onSwapSlides &&
     slideStatesKey(prev.slideStates) === slideStatesKey(next.slideStates)

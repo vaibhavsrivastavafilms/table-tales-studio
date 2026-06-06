@@ -38,7 +38,7 @@ export async function GET(
             ? "image/jpeg"
             : "application/octet-stream";
 
-  return new NextResponse(buffer, {
+  return new NextResponse(new Uint8Array(buffer), {
     headers: {
       "Content-Type": mimeType,
       "Cache-Control": "private, max-age=3600",

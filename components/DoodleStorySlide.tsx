@@ -2,6 +2,8 @@
 
 import { memo, useMemo } from "react";
 import DoodleOverlay from "@/components/DoodleOverlay";
+import RendererDoodleLayer from "@/components/renderers/RendererDoodleLayer";
+import TemplatePhotoComposite from "@/components/renderers/TemplatePhotoComposite";
 import EditorialCaption from "@/components/EditorialCaption";
 import EditorialLayerStack from "@/components/EditorialLayerStack";
 import EditorialTypographyBlocks from "@/components/EditorialTypographyBlocks";
@@ -13,11 +15,12 @@ import {
   getLockedOverlayLayers,
   getLockedPhotoTreatment,
 } from "@/lib/doodleCafeLock";
-import type { AiSlideDesign } from "@/lib/aiOverlayRenderer";
 import {
+  type AiSlideDesign,
   overlayImageStyle,
   proceduralDoodleOpacity,
 } from "@/lib/aiOverlayRenderer";
+
 import type { SlideEditorPrefs } from "@/lib/slideEditorPrefs";
 import type { SlideArtDirection } from "@/lib/slideArtDirector";
 import type { StyleReference } from "@/lib/styleReference";
@@ -97,6 +100,8 @@ function DoodleStorySlide({
     artDirection?.highlightColor ?? accentColorProp ?? DOODLE_CAFE_ACCENT;
   const borderRadius = templateVisual.borderRadius ?? 28;
 
+  const templateRender = artDirection?.templateRender;
+
   const composition = useMemo(() => {
     if (artDirection?.doodles) return artDirection.doodles.procedural;
     return buildDoodleComposition({
@@ -118,7 +123,14 @@ function DoodleStorySlide({
   const photoGrain =
     artDirection?.emotional?.grain ?? templateVisual.grainOpacity ?? 0.025;
 
-  const captionCard = artDirection?.composition?.captionCard ?? {
+  const captionCard = templateRender
+    ? {
+        x: templateRender.typography.captionZone.x,
+        y: templateRender.typography.captionZone.y,
+        width: templateRender.typography.captionZone.width,
+        rotation: templateRender.typography.rotation,
+      }
+    : artDirection?.composition?.captionCard ?? {
         x: composition.captionCard.x,
         y: composition.captionCard.y,
         width: composition.captionCard.width,
@@ -159,6 +171,14 @@ function DoodleStorySlide({
           height={height}
           reveal={typeRevealCollage}
         />
+      ) : templateRender && image ? (
+        <TemplatePhotoComposite
+          image={image}
+          width={width}
+          height={height}
+          render={templateRender}
+          fallbackFilter={photoFilter ?? getLockedPhotoTreatment(templateVisual).filter}
+        />
       ) : image ? (
         <img
           src={image}
@@ -179,33 +199,37 @@ function DoodleStorySlide({
         />
       )}
 
-      {gradientTop && (
+      {!templateRender && gradientTop && (
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 z-[8]"
           style={{ background: gradientTop, opacity: overlayMix }}
         />
       )}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{ background: overlays.tungsten, opacity: overlayMix * 0.9 }}
-      />
-      {gradientBottom && (
+      {!templateRender && (
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 z-[8]"
+          style={{ background: overlays.tungsten, opacity: overlayMix * 0.9 }}
+        />
+      )}
+      {!templateRender && gradientBottom && (
+        <div
+          className="pointer-events-none absolute inset-0 z-[8]"
           style={{ background: gradientBottom, opacity: overlayMix }}
         />
       )}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: `radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,${vignetteStrength}) 100%)`,
-          opacity: overlayMix,
-        }}
-      />
-
-      {photoGrain > 0 && (
+      {!templateRender && (
         <div
-          className="pointer-events-none absolute inset-0 mix-blend-overlay"
+          className="pointer-events-none absolute inset-0 z-[8]"
+          style={{
+            background: `radial-gradient(ellipse at center, transparent 35%, rgba(0,0,0,${vignetteStrength}) 100%)`,
+            opacity: overlayMix,
+          }}
+        />
+      )}
+
+      {!templateRender && photoGrain > 0 && (
+        <div
+          className="pointer-events-none absolute inset-0 z-[8] mix-blend-overlay"
           style={{
             opacity: photoGrain * overlayMix,
             backgroundImage:
@@ -244,7 +268,18 @@ function DoodleStorySlide({
         </div>
       )}
 
-      {doodlesOn && (
+      {doodlesOn &&
+        (templateRender && templateRender.doodleLayer.doodles.length > 0 ? (
+        <RendererDoodleLayer
+          layer={templateRender.doodleLayer}
+          opacity={
+            overlayMix *
+            doodleReveal *
+            (artDirection?.doodles?.density ?? 1) *
+            (slidePrefs?.stickerDensity ?? 1)
+          }
+        />
+      ) : (
         <div
           className="pointer-events-none absolute inset-0 z-[18]"
           style={{
@@ -264,7 +299,7 @@ function DoodleStorySlide({
             animate
           />
         </div>
-      )}
+      ))}
 
       {artDirection?.typographyPlan ? (
         <EditorialTypographyBlocks

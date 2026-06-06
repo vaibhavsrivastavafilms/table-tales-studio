@@ -1,10 +1,5 @@
-import OsPlaceholder from "@/components/os/OsPlaceholder";
+import InventoryFromPurchasesView from "@/components/os/procurement/InventoryFromPurchasesView";
 
 export default function InventoryPage() {
-  return (
-    <OsPlaceholder
-      title="Inventory"
-      description="Stock levels, par levels, and ingredient availability by location."
-    />
-  );
+  return <InventoryFromPurchasesView />;
 }

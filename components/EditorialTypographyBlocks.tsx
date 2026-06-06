@@ -7,8 +7,10 @@ import {
   DOODLE_CAFE_CREAM,
   DOODLE_CAFE_ESPRESSO,
 } from "@/lib/doodleCafeLock";
-import type { DynamicTypographyPlan } from "@/lib/aiTypographyEngine";
-import type { TypographyComposition } from "@/lib/aiTypographyEngine";
+import {
+  type DynamicTypographyPlan,
+  type TypographyComposition,
+} from "@/lib/aiTypographyEngine";
 
 type EditorialTypographyBlocksProps = {
   caption: string;

@@ -1,7 +1,5 @@
-import type { Captions } from "@/lib/slides";
-import { SLIDE_KEYS } from "@/lib/slides";
-import type { DirectorProfile } from "@/lib/directorProfile";
-import { mergeSignatureWords } from "@/lib/directorProfile";
+import { type Captions, SLIDE_KEYS } from "@/lib/slides";
+import { type DirectorProfile, mergeSignatureWords } from "@/lib/directorProfile";
 
 const STOP_WORDS = new Set([
   "the",
